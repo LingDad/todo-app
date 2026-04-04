@@ -338,6 +338,31 @@
         transform-origin: bottom right;
       }
     }
+
+    /* ── Vacuum Cleaner Widget ─────────────────────────────────── */
+    .vacuum-widget {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 9997;
+      user-select: none;
+      pointer-events: none;
+    }
+    .vacuum-widget svg {
+      width: 100%;
+      height: 100%;
+    }
+    #vacBtn { cursor: pointer; pointer-events: all; }
+
+    /* Nozzle suction glow — pulses when vacuum is on */
+    @keyframes vacPulse {
+      from { opacity: 0.10; r: 18px; }
+      to   { opacity: 0.80; r: 26px; }
+    }
+    .vacuum-widget.vac-on #vacNozzleGlow {
+      animation: vacPulse 0.38s ease-in-out infinite alternate;
+    }
   </style>
 </head>
 <body>
@@ -426,10 +451,91 @@
     </div>
   </div>
 
+  <!-- ── Vacuum Cleaner ───────────────────────────────────── -->
+  <div class="vacuum-widget" id="vacuumWidget" style="display:none">
+    <svg id="vacSvg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <radialGradient id="vbg" cx="35%" cy="28%" r="68%">
+          <stop offset="0%"   stop-color="#e6d8b8"/>
+          <stop offset="52%"  stop-color="#b09060"/>
+          <stop offset="100%" stop-color="#6e4e2a"/>
+        </radialGradient>
+        <radialGradient id="vwg" cx="36%" cy="32%" r="67%">
+          <stop offset="0%"  stop-color="#8a7050"/>
+          <stop offset="100%" stop-color="#2a1808"/>
+        </radialGradient>
+        <radialGradient id="vboff" cx="38%" cy="33%" r="68%">
+          <stop offset="0%"   stop-color="#cc3828"/>
+          <stop offset="100%" stop-color="#7c0e18"/>
+        </radialGradient>
+        <radialGradient id="vbon" cx="38%" cy="33%" r="68%">
+          <stop offset="0%"   stop-color="#4ed824"/>
+          <stop offset="100%" stop-color="#168010"/>
+        </radialGradient>
+        <filter id="vShadow">
+          <feDropShadow dx="2" dy="5" stdDeviation="6" flood-opacity="0.45"/>
+        </filter>
+      </defs>
+
+      <!-- All geometry is drawn by buildVacSvg() in JS, so elements are placed here as targets -->
+      <g id="vacHoseGroup" filter="url(#vShadow)">
+        <path id="vacHoseShadow" fill="none" stroke="rgba(0,0,0,0.28)" stroke-linecap="round"/>
+        <path id="vacHoseOuter"  fill="none" stroke="#28140a" stroke-linecap="round" stroke-dasharray="13,6"/>
+        <path id="vacHoseSheen"  fill="none" stroke="#7a5c3c" stroke-linecap="round" stroke-dasharray="5,14" stroke-dashoffset="4"/>
+        <path id="vacHoseInner"  fill="none" stroke="#100806" stroke-linecap="round" opacity="0.6"/>
+      </g>
+
+      <!-- Nozzle group — positioned by JS -->
+      <g id="vacNozzleGroup" filter="url(#vShadow)">
+        <rect id="vacNozzleShadow" rx="5" fill="rgba(0,0,0,0.30)"/>
+        <rect id="vacNozzleBody"   rx="5" fill="#281808" stroke="#180c06" stroke-width="1.5"/>
+        <rect id="vacNozzleSheen"  rx="3" fill="rgba(200,158,86,0.18)"/>
+        <rect id="vacNozzleMouth"  rx="2" fill="#0c0806"/>
+        <circle id="vacNozzleGlow" fill="#a8d8ff" opacity="0"/>
+        <circle id="vacNozzleCollar1" fill="#1a0e06" stroke="#0c0806" stroke-width="1.2"/>
+        <circle id="vacNozzleCollar2" fill="#100806"/>
+      </g>
+
+      <!-- Body group — positioned by JS -->
+      <g id="vacBodyGroup" filter="url(#vShadow)">
+        <!-- Wheels -->
+        <circle id="vacWheel1" fill="url(#vwg)"/>
+        <circle id="vacWheel2" fill="url(#vwg)"/>
+        <circle id="vacAxle1"  fill="#0e0806" opacity="0.7"/>
+        <circle id="vacAxle2"  fill="#0e0806" opacity="0.7"/>
+        <!-- Body shadow -->
+        <rect id="vacBodyShadow" rx="27" fill="rgba(0,0,0,0.22)"/>
+        <!-- Body -->
+        <rect id="vacBody" rx="27" fill="url(#vbg)" stroke="#5c3e1e" stroke-width="1.5"/>
+        <rect id="vacBodySheen" rx="15" fill="rgba(240,222,182,0.22)"/>
+        <!-- Vents -->
+        <g id="vacVents" stroke="#7a5e30" stroke-width="1.3" stroke-linecap="round" opacity="0.42"/>
+        <!-- Label -->
+        <rect id="vacLabelBg" rx="4" fill="#8a6838" opacity="0.55"/>
+        <text id="vacLabelTxt" font-family="Georgia,serif" fill="#e8d090"
+              text-anchor="middle" letter-spacing="1.5" opacity="0.9">VAC</text>
+        <!-- Port -->
+        <circle id="vacPort1" fill="#201008" stroke="#140a04" stroke-width="1.2"/>
+        <circle id="vacPort2" fill="#0e0806"/>
+        <!-- Power button -->
+        <circle id="vacBtn" fill="url(#vboff)" stroke="#3e0812" stroke-width="2" style="pointer-events:all;cursor:pointer"/>
+        <circle id="vacBtnRing" fill="none" stroke="rgba(255,180,150,0.18)" stroke-width="2.5"/>
+      </g>
+    </svg>
+  </div>
+
   <!-- ── Tool Launcher ─────────────────────────────────────── -->
   <div class="tlauncher" id="tlauncher">
     <!-- Radial menu options (zero-size origin at FAB centre) -->
     <div class="tradial" id="tradial">
+      <button class="toption" id="topt-vac" data-label="Vacuum" aria-label="Vacuum">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <ellipse cx="16" cy="9.5" rx="7" ry="5.5" opacity="0.9"/>
+          <path d="M9 9.5 C6 14 4 18 3 22" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+          <rect x="1" y="20" width="7" height="3.5" rx="1.5"/>
+          <circle cx="16" cy="16.5" r="2.8" opacity="0.65"/>
+        </svg>
+      </button>
       <button class="toption" id="topt-fan" data-label="Fan" aria-label="Fan">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
           <path d="M12 12C10.5 9 10.5 5.5 12 3.5C15 1 17 5.5 12 12Z" opacity="0.9"/>
@@ -500,6 +606,111 @@
       return Math.max(-2.5, Math.min(2.5, sum / SLOPE_R));
     }
 
+    // ── Vacuum / suction state ───────────────────────────────────
+    let vacOn           = false;
+    let vacuumStrength  = 0;
+    const VAC_POWER     = 22.0;
+    const VAC_RAMP_UP   = 1 / (60 * 0.55);
+    const VAC_RAMP_DOWN = 1 / (60 * 0.45);
+
+    // Nozzle mouth screen position — computed by buildVacSvg(), stored here
+    let _vacNX = 200, _vacNY = 0;
+    const vacNozzleX = () => _vacNX;
+    const vacNozzleY = () => _vacNY;
+
+    // ── Build vacuum SVG geometry dynamically ─────────────────────
+    // Machine body sits in the bottom-right corner; hose sweeps to the bottom-centre
+    // where letters pile up, placing the nozzle just above the floor.
+    function buildVacSvg() {
+      const W  = window.innerWidth,  H = window.innerHeight;
+
+      // Body dimensions (screen px)
+      const BW = 130, BH = 76;
+      // Body top-left corner
+      const BX = W - BW - 22, BY = H - BH - 108;
+      // Hose port: left-centre of body
+      const portX = BX,       portY = BY + BH * 0.5 - 4;
+      // Nozzle target: above letter pile, near bottom-centre of screen
+      const nozX  = W * 0.60;   // 60% across, closer to letter pile
+      const nozY  = H - 22;     // resting on the floor
+      const nozW  = 80, nozH = 20;
+      // Nozzle mouth is the LEFT end (faces left toward letter pile)
+      _vacNX = nozX;
+      _vacNY = nozY + nozH * 0.5;
+
+      // Hose bezier: port → nozzle-collar
+      const nozColX = nozX + nozW * 0.5, nozColY = nozY;
+      const cp1x = portX - 60, cp1y = portY + 80;
+      const cp2x = nozColX + 40, cp2y = nozColY - 100;
+      const hoseD = `M ${portX} ${portY} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${nozColX} ${nozColY}`;
+
+      function set(id, attrs) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      }
+
+      // Hose
+      const hw = 14;
+      ['vacHoseShadow','vacHoseOuter','vacHoseSheen','vacHoseInner'].forEach(id => set(id, {d: hoseD}));
+      set('vacHoseShadow', {d: hoseD, 'stroke-width': hw + 4});
+      set('vacHoseOuter',  {d: hoseD, 'stroke-width': hw});
+      set('vacHoseSheen',  {d: hoseD, 'stroke-width': hw * 0.45});
+      set('vacHoseInner',  {d: hoseD, 'stroke-width': hw * 0.32});
+
+      // Nozzle (horizontal bar at bottom, mouth on right side facing letters)
+      const ns = {x: nozX, y: nozY, w: nozW, h: nozH};
+      set('vacNozzleShadow', {x: ns.x+3, y: ns.y+3, width: ns.w, height: ns.h});
+      set('vacNozzleBody',   {x: ns.x,   y: ns.y,   width: ns.w, height: ns.h});
+      set('vacNozzleSheen',  {x: ns.x+2, y: ns.y+2, width: ns.w-4, height: ns.h*0.38});
+      // Mouth opening on left end (faces left toward letter pile)
+      set('vacNozzleMouth',  {x: ns.x-2, y: ns.y+2, width: 12, height: ns.h-4});
+      set('vacNozzleGlow',   {cx: ns.x-2, cy: ns.y+ns.h*0.5, r: 18});
+      // Collar where hose meets nozzle (top-centre)
+      set('vacNozzleCollar1', {cx: nozColX, cy: nozColY+2, r: 12});
+      set('vacNozzleCollar2', {cx: nozColX, cy: nozColY+2, r:  6});
+
+      // Wheels
+      const wR = 16;
+      set('vacWheel1', {cx: BX + BW*0.28, cy: BY + BH + wR - 4, r: wR});
+      set('vacWheel2', {cx: BX + BW*0.72, cy: BY + BH + wR - 4, r: wR});
+      set('vacAxle1',  {cx: BX + BW*0.28, cy: BY + BH + wR - 4, r:  6});
+      set('vacAxle2',  {cx: BX + BW*0.72, cy: BY + BH + wR - 4, r:  6});
+
+      // Body
+      set('vacBodyShadow', {x: BX+3, y: BY+5, width: BW, height: BH});
+      set('vacBody',       {x: BX,   y: BY,   width: BW, height: BH});
+      set('vacBodySheen',  {x: BX+14, y: BY+5, width: BW*0.56, height: BH*0.36});
+
+      // Vents (right side of body — 3 vertical lines)
+      const vg = document.getElementById('vacVents');
+      if (vg) {
+        vg.innerHTML = '';
+        const ns2 = (i) => { const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+          const vx = BX + BW - 22 + i*7;
+          l.setAttribute('x1', vx); l.setAttribute('x2', vx);
+          l.setAttribute('y1', BY+10); l.setAttribute('y2', BY+BH-10);
+          vg.appendChild(l); };
+        [0,1,2].forEach(ns2);
+      }
+
+      // Label
+      set('vacLabelBg',  {x: BX+BW*0.25, y: BY+BH*0.42, width: 50, height: 18});
+      set('vacLabelTxt', {x: BX+BW*0.25+25, y: BY+BH*0.42+13, 'font-size': 8});
+
+      // Port
+      set('vacPort1', {cx: portX, cy: portY, r: 12});
+      set('vacPort2', {cx: portX, cy: portY, r:  6});
+
+      // Power button (right side of body)
+      const btnCX = BX + BW - 18, btnCY = BY + BH*0.5;
+      set('vacBtn',     {cx: btnCX, cy: btnCY, r: 14});
+      set('vacBtnRing', {cx: btnCX, cy: btnCY, r: 14});
+    }
+
+    buildVacSvg();
+    window.addEventListener('resize', buildVacSvg);
+
     // ── Fan / wind state ─────────────────────────────────────────
     let fanOn        = false;
     let windRamping  = false;       // true only after head has finished turning
@@ -560,6 +771,21 @@
         const turb   = wf * 0.35;
         p.vx += (dx / dist) * wf * 1.5 + (Math.random() - 0.5) * turb;
         p.vy += (dy / dist) * wf * 0.3 * vAtten + (Math.random() - 0.5) * turb * 0.5;
+        if (p.settled) { p.settled = false; heightMapDirty = true; }
+      }
+
+      // ①b Vacuum suction — attracts letters toward nozzle with a vortex swirl
+      if (vacuumStrength > 0) {
+        const cx = p.x + p.w * 0.5,  cy = p.y + p.h * 0.5;
+        const dx = vacNozzleX() - cx,  dy = vacNozzleY() - cy;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+        const sf   = VAC_POWER * vacuumStrength * DT / (0.5 + dist * 0.004);
+        p.vx += (dx / dist) * sf;
+        p.vy += (dy / dist) * sf;
+        // Tangential swirl so letters spiral in
+        p.vx += (-dy / dist) * sf * 0.22;
+        p.vy += ( dx / dist) * sf * 0.22;
+        p.vr -= sf * 9;   // spin up as letter approaches
         if (p.settled) { p.settled = false; heightMapDirty = true; }
       }
 
@@ -628,8 +854,8 @@
         p.vr *= (0.60 + p.mu * 0.28);
       }
 
-      // ⑨ Sleep — freeze only when wind is negligible AND energy tiny
-      if (windStrength < 0.01) {
+      // ⑨ Sleep — freeze only when wind AND vacuum are negligible AND energy tiny
+      if (windStrength < 0.01 && vacuumStrength < 0.01) {
         const E = p.vx * p.vx + p.vy * p.vy + Math.abs(p.vr) * 0.06;
         if (E < 0.10) {
           if (++p.sleepN >= 5 * SUBSTEPS) {
@@ -640,7 +866,7 @@
           }
         } else { p.sleepN = 0; }
       } else {
-        p.sleepN = 0;   // never freeze while wind is blowing
+        p.sleepN = 0;   // never freeze while wind or vacuum is active
       }
     }
 
@@ -654,6 +880,11 @@
         if      (fanOn && windRamping  && windStrength < 1) windStrength = Math.min(1, windStrength + WIND_RAMP_UP);
         else if ((!fanOn || !windRamping) && windStrength > 0) windStrength = Math.max(0, windStrength - WIND_RAMP_DOWN);
         setWind(windStrength);
+
+        // Vacuum ramp
+        if      (vacOn && vacuumStrength < 1) vacuumStrength = Math.min(1, vacuumStrength + VAC_RAMP_UP);
+        else if (!vacOn && vacuumStrength > 0) vacuumStrength = Math.max(0, vacuumStrength - VAC_RAMP_DOWN);
+        setVacuumGain(vacuumStrength);
 
         // Rebuild height map when letters were dislodged by wind
         if (heightMapDirty) { rebuildHeightMap(); heightMapDirty = false; }
@@ -672,6 +903,17 @@
           }
         }
 
+        // Vacuum pre-pass: dislodge settled letters within suction range
+        if (vacuumStrength > 0) {
+          const nx = vacNozzleX(), ny = vacNozzleY();
+          for (const p of allParticles) {
+            if (!p.settled || p.gone) continue;
+            if (Math.hypot(p.x + p.w * 0.5 - nx, p.y + p.h * 0.5 - ny) < 420) {
+              p.settled = false; heightMapDirty = true;
+            }
+          }
+        }
+
         let anyActive = false;
         for (const p of allParticles) {
           if (p.settled || p.gone) continue;
@@ -680,14 +922,34 @@
             if (p.settled || p.gone) break;
           }
           if (p.gone) continue;
-          p.el.style.left      = p.x + 'px';
-          p.el.style.top       = p.y + 'px';
-          p.el.style.transform = `rotate(${p.rot}deg)`;
+          p.el.style.left = p.x + 'px';
+          p.el.style.top  = p.y + 'px';
+
+          // Shrink letters as they approach the nozzle; absorb at threshold
+          let renderScale = 1;
+          if (vacuumStrength > 0) {
+            const nd = Math.hypot(p.x + p.w * 0.5 - vacNozzleX(),
+                                  p.y + p.h * 0.5 - vacNozzleY());
+            if (nd < 72) {
+              renderScale = Math.max(0.04, nd / 72);
+              if (nd < 18) {   // absorbed into nozzle
+                p.el.style.opacity = '0';
+                setTimeout(() => p.el.remove(), 80);
+                p.gone = true; heightMapDirty = true;
+                _noise(0.05, 0.03, 5000, 2.5, 'highpass');  // tiny pop
+                continue;
+              }
+            }
+          }
+
+          p.el.style.transform = renderScale < 1
+            ? `rotate(${p.rot}deg) scale(${renderScale.toFixed(3)})`
+            : `rotate(${p.rot}deg)`;
           if (!p.settled) anyActive = true;
         }
 
-        // Keep loop alive while wind is active or letters are still moving
-        if (anyActive || windStrength > 0 || (fanOn && windRamping)) requestAnimationFrame(tick);
+        // Keep loop alive while wind/vacuum is active or letters are still moving
+        if (anyActive || windStrength > 0 || (fanOn && windRamping) || vacuumStrength > 0) requestAnimationFrame(tick);
         else loopRunning = false;
       }
 
@@ -831,6 +1093,51 @@
       if (_wGain) _wGain.gain.setTargetAtTime(s * 0.15, AC.currentTime, 0.28);
     }
 
+    // ⑤ Vacuum motor sound — higher-pitched bandpass noise
+    let _vacGain = null;
+    function _initVacuumSound() {
+      if (_vacGain) return;
+      const rate = AC.sampleRate, len = rate * 3;
+      const buf  = AC.createBuffer(1, len, rate);
+      const d    = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;   // white noise
+      const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+      const lp  = AC.createBiquadFilter(); lp.type  = 'lowpass';  lp.frequency.value = 2200;
+      const hp  = AC.createBiquadFilter(); hp.type  = 'highpass'; hp.frequency.value = 600;
+      _vacGain = AC.createGain(); _vacGain.gain.value = 0;
+      src.connect(lp); lp.connect(hp); hp.connect(_vacGain); _vacGain.connect(_out);
+      src.start();
+    }
+    function setVacuumGain(s) {
+      if (_vacGain) _vacGain.gain.setTargetAtTime(s * 0.19, AC.currentTime, 0.22);
+    }
+
+    // ⑥ Vacuum switch — sharper electric click + higher-frequency spin
+    function playVacuumSwitch(on) {
+      if (AC.state === 'suspended') AC.resume();
+      _noise(0.32, 0.014, 7000, 2);            // hard electric click
+      const t = AC.currentTime + 0.015;
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(on ? 55 : 300, t);
+      o.frequency.exponentialRampToValueAtTime(on ? 320 : 48, t + 0.52);
+      g.gain.setValueAtTime(0.07, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.54);
+      o.connect(g); g.connect(_out); o.start(t); o.stop(t + 0.55);
+    }
+
+    // ── Vacuum button ─────────────────────────────────────────────
+    const vacBtn      = document.getElementById('vacBtn');
+    const vacuumWidget = document.getElementById('vacuumWidget');
+
+    vacBtn.addEventListener('click', () => {
+      vacOn = !vacOn;
+      _initVacuumSound();
+      playVacuumSwitch(vacOn);
+      vacBtn.setAttribute('fill', `url(#${vacOn ? 'vbon' : 'vboff'})`);
+      vacuumWidget.classList.toggle('vac-on', vacOn);
+      ensureLoop();
+    });
+
     // ── Add task ─────────────────────────────────────────────────
     function addTask() {
       const text = input.value.trim();
@@ -874,6 +1181,7 @@
     const tlbtn    = document.getElementById('tlbtn');
     const tradial  = document.getElementById('tradial');
     const toptFan  = document.getElementById('topt-fan');
+    const toptVac  = document.getElementById('topt-vac');
 
     let menuOpen   = false;
     let activeTool = null;   // 'fan' | null (more tools later)
@@ -916,18 +1224,41 @@
         setMenuOpen(false);
     });
 
-    // Fan option
-    toptFan.addEventListener('click', () => {
+    // Helper: deactivate any currently active tool
+    function deactivateCurrentTool() {
       if (activeTool === 'fan') {
-        // Deactivate fan
-        activeTool = null;
         toptFan.classList.remove('active');
         fanWidget.style.display = 'none';
-        if (fanOn) fanBtn.click();          // turn fan off if running
-      } else {
+        if (fanOn) fanBtn.click();
+      }
+      if (activeTool === 'vac') {
+        toptVac.classList.remove('active');
+        vacuumWidget.style.display = 'none';
+        if (vacOn) vacBtn.click();
+      }
+      activeTool = null;
+    }
+
+    // Fan option
+    toptFan.addEventListener('click', () => {
+      if (activeTool === 'fan') { deactivateCurrentTool(); }
+      else {
+        deactivateCurrentTool();
         activeTool = 'fan';
         toptFan.classList.add('active');
-        fanWidget.style.display = '';       // show fan widget
+        fanWidget.style.display = '';
+      }
+      setMenuOpen(false);
+    });
+
+    // Vacuum option
+    toptVac.addEventListener('click', () => {
+      if (activeTool === 'vac') { deactivateCurrentTool(); }
+      else {
+        deactivateCurrentTool();
+        activeTool = 'vac';
+        toptVac.classList.add('active');
+        vacuumWidget.style.display = '';
       }
       setMenuOpen(false);
     });
