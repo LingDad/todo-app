@@ -380,15 +380,15 @@
     }
     .tor-core {
       position: absolute;
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
+      width: 240px;
+      height: 340px;
       pointer-events: auto;
       cursor: grab;
       touch-action: none;
-      transform: translate(-50%, -50%);
-      background: rgba(130, 110, 200, 0.10);
-      border: 1.5px dashed rgba(170, 150, 230, 0.40);
+      /* shift up so the element covers cloud-top to tip */
+      transform: translate(-50%, -75%);
+      background: transparent;
+      border: none;
     }
     .tor-core:active { cursor: grabbing; }
     #torCanvas {
