@@ -367,11 +367,69 @@
     .vacuum-widget.vac-on #vacNozzleGlow {
       animation: vacPulse 0.38s ease-in-out infinite alternate;
     }
+
+    /* ── Tornado Widget ─────────────────────────────────────── */
+    .tornado-widget {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 9990;
+      user-select: none;
+      pointer-events: none;
+    }
+    .tor-core {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      pointer-events: auto;
+      cursor: grab;
+      touch-action: none;
+      transform: translate(-50%, -50%);
+      background: rgba(130, 110, 200, 0.10);
+      border: 1.5px dashed rgba(170, 150, 230, 0.40);
+    }
+    .tor-core:active { cursor: grabbing; }
+    #torCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .tor-btn {
+      position: absolute;
+      left: 50%;
+      top: calc(100% + 14px);
+      transform: translateX(-50%);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 38% 33%, #cc3828, #7c0e18);
+      border: 2px solid #4e080e;
+      cursor: pointer;
+      pointer-events: auto;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.62), inset 0 1px 0 rgba(255,150,130,0.45);
+      outline: none;
+      transition: box-shadow 0.08s;
+    }
+    .tor-btn:hover { filter: brightness(1.12); }
+    .tor-btn:active {
+      box-shadow: 0 1px 2px rgba(0,0,0,0.6), inset 0 2px 5px rgba(0,0,0,0.42);
+    }
+    .tor-btn.on {
+      background: radial-gradient(circle at 38% 33%, #4ed824, #168010);
+      border-color: #0a5008;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5),
+                  0 0 11px rgba(78,218,36,0.70),
+                  inset 0 1px 0 rgba(160,255,110,0.55);
+    }
   </style>
 </head>
 <body>
   <div class="app">
-    <h1>To-do</h1>
+    <h1>Funny To-do</h1>
     <div class="add-row">
       <input type="text" id="taskInput" placeholder="Add a task…" maxlength="120" />
       <button class="add-btn" id="addBtn" title="Add">+</button>
@@ -528,6 +586,14 @@
     </svg>
   </div>
 
+  <!-- ── Tornado ─────────────────────────────────────────── -->
+  <div class="tornado-widget" id="tornadoWidget" style="display:none">
+    <canvas id="torCanvas"></canvas>
+    <div class="tor-core" id="torCore">
+      <button class="tor-btn" id="torBtn" aria-label="Tornado power toggle"></button>
+    </div>
+  </div>
+
   <!-- ── Tool Launcher ─────────────────────────────────────── -->
   <div class="tlauncher" id="tlauncher">
     <!-- Radial menu options (zero-size origin at FAB centre) -->
@@ -547,6 +613,16 @@
           <path d="M12 12C10.5 9 10.5 5.5 12 3.5C15 1 17 5.5 12 12Z" opacity="0.9" transform="rotate(180 12 12)"/>
           <path d="M12 12C10.5 9 10.5 5.5 12 3.5C15 1 17 5.5 12 12Z" opacity="0.9" transform="rotate(270 12 12)"/>
           <circle cx="12" cy="12" r="2.3"/>
+        </svg>
+      </button>
+      <button class="toption" id="topt-tor" data-label="Tornado" aria-label="Tornado">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <ellipse cx="12" cy="5"  rx="9"   ry="3.2" opacity="0.90"/>
+          <ellipse cx="11" cy="10" rx="6.2" ry="2.4" opacity="0.80"/>
+          <ellipse cx="10" cy="15" rx="3.8" ry="1.8" opacity="0.70"/>
+          <ellipse cx="9"  cy="19" rx="1.8" ry="1.1" opacity="0.60"/>
+          <line x1="9" y1="21" x2="9.4" y2="23" stroke="currentColor" stroke-width="1.4"
+                stroke-linecap="round" fill="none" opacity="0.55"/>
         </svg>
       </button>
     </div>
@@ -616,6 +692,15 @@
     const VAC_POWER     = 22.0;
     const VAC_RAMP_UP   = 1 / (60 * 0.55);
     const VAC_RAMP_DOWN = 1 / (60 * 0.45);
+
+    // ── Tornado / vortex state ───────────────────────────────────
+    let torOn = false, torStrength = 0;
+    let torX  = window.innerWidth * 0.38, torY = window.innerHeight * 0.55;
+    const TOR_POWER      = 24.0;
+    const TOR_RAMP_UP    = 1 / (60 * 0.5);
+    const TOR_RAMP_DOWN  = 1 / (60 * 0.7);
+    const TOR_RADIUS     = 350;   // px — how far the vortex pulls
+    const TOR_TIP_OFFSET = 70;    // px below element centre where suction point sits
 
     // Nozzle mouth screen position — computed by buildVacSvg(), stored here
     let _vacNX = 200, _vacNY = 0;
@@ -807,6 +892,30 @@
         if (p.settled) { p.settled = false; heightMapDirty = true; }
       }
 
+      // ①c Tornado vortex — CCW swirl + fling when letters enter the eye
+      if (torStrength > 0) {
+        const cx = p.x + p.w * 0.5,  cy = p.y + p.h * 0.5;
+        const tx = torX,  ty = torY + TOR_TIP_OFFSET;
+        const dx = tx - cx,  dy = ty - cy;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+        if (dist < TOR_RADIUS) {
+          const sf = TOR_POWER * torStrength * DT / (0.5 + dist * 0.003);
+          // Gentle radial pull
+          p.vx += (dx / dist) * sf * 0.35;
+          p.vy += (dy / dist) * sf * 0.35;
+          // Strong CCW tangential swirl (visually counter-clockwise on screen)
+          p.vx += ( dy / dist) * sf * 1.65;
+          p.vy += (-dx / dist) * sf * 1.65;
+          p.vr += sf * 14;
+          // Letters entering the eye get thrown upward and radially outward
+          if (dist < 55) {
+            p.vx += (-dx / dist) * torStrength * 10;
+            p.vy -= torStrength * 16;
+          }
+          if (p.settled) { p.settled = false; heightMapDirty = true; }
+        }
+      }
+
       // ② Quadratic air drag (F proportional to v²) — paper-flutter feel
       const speed = Math.hypot(p.vx, p.vy);
       if (speed > 0.05) {
@@ -826,7 +935,10 @@
       p.rot += p.vr * DT;
       p.vr  *= ROT_DAMP;
 
-      // ⑥ Left edge: letters blown by fan escape off-screen; others bounce
+      // ⑥ Top edge: tornado-flung letters escape off the top
+      if (torStrength > 0 && p.y + p.h < -80) { p.el.remove(); p.gone = true; return; }
+
+      // Left edge: letters blown by fan escape off-screen; others bounce
       if (p.x + p.w < -40) { p.el.remove(); p.gone = true; return; }
       if (!fanOn && p.x < 0) {
         p.x  = 0;
@@ -872,8 +984,8 @@
         p.vr *= (0.60 + p.mu * 0.28);
       }
 
-      // ⑨ Sleep — freeze only when wind AND vacuum are negligible AND energy tiny
-      if (windStrength < 0.01 && vacuumStrength < 0.01) {
+      // ⑨ Sleep — freeze only when wind, vacuum AND tornado are negligible AND energy tiny
+      if (windStrength < 0.01 && vacuumStrength < 0.01 && torStrength < 0.01) {
         const E = p.vx * p.vx + p.vy * p.vy + Math.abs(p.vr) * 0.06;
         if (E < 0.10) {
           if (++p.sleepN >= 5 * SUBSTEPS) {
@@ -884,7 +996,7 @@
           }
         } else { p.sleepN = 0; }
       } else {
-        p.sleepN = 0;   // never freeze while wind or vacuum is active
+        p.sleepN = 0;   // never freeze while wind, vacuum, or tornado is active
       }
     }
 
@@ -903,6 +1015,11 @@
         if      (vacOn && vacuumStrength < 1) vacuumStrength = Math.min(1, vacuumStrength + VAC_RAMP_UP);
         else if (!vacOn && vacuumStrength > 0) vacuumStrength = Math.max(0, vacuumStrength - VAC_RAMP_DOWN);
         setVacuumGain(vacuumStrength);
+
+        // Tornado ramp
+        if      (torOn && torStrength < 1) torStrength = Math.min(1, torStrength + TOR_RAMP_UP);
+        else if (!torOn && torStrength > 0) torStrength = Math.max(0, torStrength - TOR_RAMP_DOWN);
+        setTornadoGain(torStrength);
 
         // Rebuild height map when letters were dislodged by wind
         if (heightMapDirty) { rebuildHeightMap(); heightMapDirty = false; }
@@ -927,6 +1044,17 @@
           for (const p of allParticles) {
             if (!p.settled || p.gone) continue;
             if (Math.hypot(p.x + p.w * 0.5 - nx, p.y + p.h * 0.5 - ny) < 420) {
+              p.settled = false; heightMapDirty = true;
+            }
+          }
+        }
+
+        // Tornado pre-pass: dislodge settled letters within vortex range
+        if (torStrength > 0) {
+          const tipX = torX, tipY = torY + TOR_TIP_OFFSET;
+          for (const p of allParticles) {
+            if (!p.settled || p.gone) continue;
+            if (Math.hypot(p.x + p.w * 0.5 - tipX, p.y + p.h * 0.5 - tipY) < TOR_RADIUS) {
               p.settled = false; heightMapDirty = true;
             }
           }
@@ -967,7 +1095,7 @@
         }
 
         // Keep loop alive while wind/vacuum is active or letters are still moving
-        if (anyActive || windStrength > 0 || (fanOn && windRamping) || vacuumStrength > 0) requestAnimationFrame(tick);
+        if (anyActive || windStrength > 0 || (fanOn && windRamping) || vacuumStrength > 0 || torStrength > 0) requestAnimationFrame(tick);
         else loopRunning = false;
       }
 
@@ -1139,6 +1267,42 @@
       if (_vacGain) _vacGain.gain.setTargetAtTime(s * 0.19, AC.currentTime, 0.22);
     }
 
+    // ⑦ Tornado rumble — deep brownian noise lowpassed to a sub-bass growl
+    let _torGain = null;
+    function _initTornadoSound() {
+      if (_torGain) return;
+      if (AC.state === 'suspended') AC.resume();
+      const rate = AC.sampleRate, len = rate * 6;
+      const buf  = AC.createBuffer(1, len, rate);
+      const d    = buf.getChannelData(0);
+      let b = 0, mx = 0;
+      for (let i = 0; i < len; i++) {
+        b = b * 0.9986 + (Math.random() - 0.5) * 0.020;
+        d[i] = b; mx = Math.max(mx, Math.abs(b));
+      }
+      if (mx > 0) for (let i = 0; i < len; i++) d[i] /= mx;
+      const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+      const lp1 = AC.createBiquadFilter(); lp1.type = 'lowpass';  lp1.frequency.value = 110;
+      const lp2 = AC.createBiquadFilter(); lp2.type = 'lowpass';  lp2.frequency.value = 280;
+      _torGain  = AC.createGain(); _torGain.gain.value = 0;
+      src.connect(lp1); lp1.connect(lp2); lp2.connect(_torGain); _torGain.connect(_out);
+      src.start();
+    }
+    function setTornadoGain(s) {
+      if (_torGain) _torGain.gain.setTargetAtTime(s * 0.36, AC.currentTime, 0.32);
+    }
+    function playTorSwitch(on) {
+      if (AC.state === 'suspended') AC.resume();
+      _noise(0.22, 0.022, 2400, 1.0);
+      const t = AC.currentTime + 0.02;
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(on ? 28 : 110, t);
+      o.frequency.exponentialRampToValueAtTime(on ? 110 : 22, t + 0.78);
+      g.gain.setValueAtTime(0.09, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.80);
+      o.connect(g); g.connect(_out); o.start(t); o.stop(t + 0.82);
+    }
+
     // ⑥ Vacuum switch — sharper electric click + higher-frequency spin
     function playVacuumSwitch(on) {
       if (AC.state === 'suspended') AC.resume();
@@ -1172,6 +1336,165 @@
         setLauncher(true);
       }
     });
+
+    // ── Tornado button + drag ─────────────────────────────────────
+    const torBtn        = document.getElementById('torBtn');
+    const tornadoWidget = document.getElementById('tornadoWidget');
+    const torCore       = document.getElementById('torCore');
+
+    function positionTorCore() {
+      torCore.style.left = torX + 'px';
+      torCore.style.top  = torY + 'px';
+    }
+
+    // ── Tornado canvas particle renderer ─────────────────────────
+    const torCanvas = document.getElementById('torCanvas');
+    const torCtx    = torCanvas.getContext('2d');
+
+    const TOR_VIS_H   = 310;   // visual height: tip → cloud top (px)
+    const TOR_R_TIP   = 5;     // funnel radius at tip (px)
+    const TOR_R_CLOUD = 108;   // funnel radius at cloud (px)
+
+    // Build two pools of particles: atmospheric swirl (blue-grey) + ground debris (brown)
+    function _makePart(isDebris) {
+      return {
+        t:      isDebris ? Math.random() * 0.35 : Math.random(),
+        angle:  Math.random() * Math.PI * 2,
+        speed:  (isDebris ? 0.048 : 0.030) + Math.random() * 0.028,
+        drift:  (isDebris ? 0.00065 : 0.00048) + Math.random() * 0.00050,
+        size:   isDebris ? 2.2 + Math.random() * 3.5 : 1.1 + Math.random() * 2.6,
+        alpha:  (isDebris ? 0.55 : 0.32) + Math.random() * 0.42,
+        hue:    isDebris ? 22 + Math.random() * 28 : 200 + Math.random() * 50,
+        sat:    isDebris ? 28 + Math.random() * 28 : 6  + Math.random() * 18,
+        debris: isDebris,
+      };
+    }
+    const _torParts = [
+      ...Array.from({length: 260}, () => _makePart(false)),
+      ...Array.from({length:  35}, () => _makePart(true)),
+    ];
+
+    function _resizeTorCanvas() {
+      torCanvas.width  = window.innerWidth;
+      torCanvas.height = window.innerHeight;
+    }
+    _resizeTorCanvas();
+    window.addEventListener('resize', _resizeTorCanvas);
+
+    let _torRafId = null;
+    let _torVis   = 0;   // visual strength, smoothly tracks torStrength
+
+    function _drawTornado() {
+      const W = torCanvas.width, H = torCanvas.height;
+      const tipX = torX, tipY = torY + TOR_TIP_OFFSET;
+
+      // Clear to transparent so todo content shows through
+      torCtx.clearRect(0, 0, W, H);
+
+      if (_torVis < 0.005) return;
+
+      const spd = 0.6 + _torVis * 2.6;   // animation speed multiplier
+
+      for (const p of _torParts) {
+        // Rotate faster near tip, slower near cloud
+        p.angle += p.speed * spd * (1 + (1 - p.t) * 1.9);
+        // Drift upward; reset to tip when reaching the cloud
+        p.t += p.drift * spd;
+        if (p.t > 1.0) { p.t = Math.random() * 0.04; p.angle = Math.random() * Math.PI * 2; }
+
+        const r  = TOR_R_TIP + (TOR_R_CLOUD - TOR_R_TIP) * p.t;
+        const px = tipX + Math.sin(p.angle) * r;
+        // Slight fore-shortening so the funnel looks 3-D
+        const py = tipY - p.t * TOR_VIS_H + Math.cos(p.angle) * r * 0.13;
+
+        const L   = 22 + p.t * 48;          // dark at tip, light at cloud
+        const alp = p.alpha * _torVis * (0.35 + p.t * 0.65);
+        torCtx.beginPath();
+        torCtx.arc(px, py, p.size * (0.65 + p.t * 0.55), 0, Math.PI * 2);
+        torCtx.fillStyle = `hsla(${p.hue},${p.sat}%,${L}%,${alp.toFixed(2)})`;
+        torCtx.fill();
+      }
+
+      // Ground dust: radial gradient ellipse at the tip
+      const dustA = _torVis * 0.38;
+      const dg = torCtx.createRadialGradient(tipX, tipY, 0, tipX, tipY, 50);
+      dg.addColorStop(0, `rgba(110,90,65,${dustA})`);
+      dg.addColorStop(1, 'rgba(110,90,65,0)');
+      torCtx.beginPath();
+      torCtx.ellipse(tipX, tipY, 50, 15, 0, 0, Math.PI * 2);
+      torCtx.fillStyle = dg;
+      torCtx.fill();
+
+      // Cloud puffs at the crown
+      const cloudY = tipY - TOR_VIS_H;
+      const puffData = [[-30,6,40,0.62],[0,-10,52,0.55],[28,4,36,0.58]];
+      for (const [ox, oy, cr, oa] of puffData) {
+        const cg = torCtx.createRadialGradient(tipX+ox, cloudY+oy, 0, tipX+ox, cloudY+oy, cr);
+        cg.addColorStop(0, `rgba(195,188,225,${oa * _torVis})`);
+        cg.addColorStop(1, 'rgba(195,188,225,0)');
+        torCtx.beginPath();
+        torCtx.ellipse(tipX+ox, cloudY+oy, cr, cr*0.62, 0, 0, Math.PI * 2);
+        torCtx.fillStyle = cg;
+        torCtx.fill();
+      }
+    }
+
+    function _torLoop() {
+      // Smoothly ramp visual strength toward physics torStrength
+      _torVis += (torStrength - _torVis) * 0.07;
+      if (!torOn && _torVis < 0.006) _torVis = 0;
+
+      _drawTornado();
+
+      if (tornadoWidget.style.display !== 'none') {
+        _torRafId = requestAnimationFrame(_torLoop);
+      } else {
+        _torRafId = null;
+        torCtx.clearRect(0, 0, torCanvas.width, torCanvas.height);
+      }
+    }
+
+    function startTorCanvas() {
+      _resizeTorCanvas();
+      if (!_torRafId) _torRafId = requestAnimationFrame(_torLoop);
+    }
+
+    torBtn.addEventListener('click', e => {
+      e.stopPropagation();   // don't trigger drag-start on the parent
+      torOn = !torOn;
+      torBtn.classList.toggle('on', torOn);
+      playTorSwitch(torOn);
+      tornadoWidget.classList.toggle('tor-on', torOn);
+      if (torOn) {
+        _initTornadoSound();
+        ensureLoop();
+      } else {
+        if (tornadoWidget.style.display !== 'none') {
+          tornadoWidget.style.display = 'none';
+          toptTor.classList.remove('active');
+          activeTool = null;
+          setLauncher(true);
+        }
+      }
+    });
+
+    // Drag the tornado vortex with pointer capture
+    let _torDrag = false, _torOX = 0, _torOY = 0;
+    torCore.addEventListener('pointerdown', e => {
+      if (e.target === torBtn) return;
+      _torDrag = true;
+      _torOX = e.clientX - torX;
+      _torOY = e.clientY - torY;
+      torCore.setPointerCapture(e.pointerId);
+    });
+    torCore.addEventListener('pointermove', e => {
+      if (!_torDrag) return;
+      torX = Math.max(0, Math.min(window.innerWidth,  e.clientX - _torOX));
+      torY = Math.max(0, Math.min(window.innerHeight, e.clientY - _torOY));
+      positionTorCore();
+    });
+    torCore.addEventListener('pointerup',     () => { _torDrag = false; });
+    torCore.addEventListener('pointercancel', () => { _torDrag = false; });
 
     // ── Add task ─────────────────────────────────────────────────
     function addTask() {
@@ -1217,9 +1540,10 @@
     const tradial  = document.getElementById('tradial');
     const toptFan  = document.getElementById('topt-fan');
     const toptVac  = document.getElementById('topt-vac');
+    const toptTor  = document.getElementById('topt-tor');
 
     let menuOpen   = false;
-    let activeTool = null;   // 'fan' | null (more tools later)
+    let activeTool = null;   // 'fan' | 'vac' | 'tor' | null
 
     // Compute each option's outward position in the arc and store it.
     // Call again when tools are added so positions re-spread automatically.
@@ -1278,6 +1602,11 @@
         vacuumWidget.style.display = 'none';
         if (vacOn) vacBtn.click();
       }
+      if (activeTool === 'tor') {
+        toptTor.classList.remove('active');
+        tornadoWidget.style.display = 'none';
+        if (torOn) torBtn.click();
+      }
       activeTool = null;
       setLauncher(true);
     }
@@ -1308,6 +1637,20 @@
       }
     });
 
+    // Tornado option
+    toptTor.addEventListener('click', () => {
+      if (activeTool === 'tor') { deactivateCurrentTool(); }
+      else {
+        deactivateCurrentTool();
+        activeTool = 'tor';
+        toptTor.classList.add('active');
+        tornadoWidget.style.display = '';
+        positionTorCore();
+        startTorCanvas();
+        setMenuOpen(false);
+        setLauncher(false);
+      }
+    });
 
     // Seed example tasks
     ['Buy groceries', 'Read for 30 minutes', 'Go for a walk']
