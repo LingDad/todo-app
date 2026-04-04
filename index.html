@@ -681,18 +681,22 @@
       set('vacAxle1',  {cx: BX + BW*0.28, cy: BY + BH + wR - 4, r: Math.max(3, Math.round(6*sc))});
       set('vacAxle2',  {cx: BX + BW*0.72, cy: BY + BH + wR - 4, r: Math.max(3, Math.round(6*sc))});
 
-      // Body
-      set('vacBodyShadow', {x: BX+3, y: BY+5, width: BW, height: BH});
-      set('vacBody',       {x: BX,   y: BY,   width: BW, height: BH});
+      // Body — scale rx so rounded corners stay proportional
+      const bRx = Math.round(27 * sc);
+      set('vacBodyShadow', {x: BX+3, y: BY+5, width: BW, height: BH, rx: bRx});
+      set('vacBody',       {x: BX,   y: BY,   width: BW, height: BH, rx: bRx});
       set('vacBodySheen',  {x: BX+Math.round(14*sc), y: BY+5, width: BW*0.56, height: BH*0.36});
 
       // Vents (right side of body — 3 vertical lines)
       const vg = document.getElementById('vacVents');
       if (vg) {
         vg.innerHTML = '';
+        // Keep vents away from rounded corners — anchor near right-centre of body
+        const vgap = Math.round(7 * sc);
+        const vx0  = BX + BW - bRx - Math.round(6*sc);  // rightmost safe x
         [0,1,2].forEach(i => {
           const l = document.createElementNS('http://www.w3.org/2000/svg','line');
-          const vx = BX + BW - Math.round(22*sc) + i * Math.round(7*sc);
+          const vx = vx0 - i * vgap;
           l.setAttribute('x1', vx); l.setAttribute('x2', vx);
           l.setAttribute('y1', BY+Math.round(10*sc)); l.setAttribute('y2', BY+BH-Math.round(10*sc));
           vg.appendChild(l);
