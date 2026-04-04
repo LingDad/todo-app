@@ -889,8 +889,8 @@
       const spread = Math.min(60, (n - 1) * 50) * Math.PI / 180;
       opts.forEach((opt, i) => {
         const a  = mid + (n === 1 ? 0 : (i / (n - 1) - 0.5) * spread);
-        opt._dx  = -Math.cos(a) * R;
-        opt._dy  = -Math.sin(a) * R;
+        opt._dx  =  Math.cos(a) * R;   // cos(135°) is already negative → moves left
+        opt._dy  = -Math.sin(a) * R;   // flip y: negative = up in screen coords
         // Start collapsed at the FAB centre
         opt.style.transform = `translate(${opt._dx}px,${opt._dy}px) scale(0)`;
         opt.style.opacity   = '0';
