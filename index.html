@@ -453,7 +453,7 @@
 
   <!-- ── Vacuum Cleaner ───────────────────────────────────── -->
   <div class="vacuum-widget" id="vacuumWidget" style="display:none">
-    <svg id="vacSvg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg id="vacSvg" xmlns="http://www.w3.org/2000/svg" overflow="visible" aria-hidden="true">
       <defs>
         <radialGradient id="vbg" cx="35%" cy="28%" r="68%">
           <stop offset="0%"   stop-color="#e6d8b8"/>
@@ -624,24 +624,27 @@
     function buildVacSvg() {
       const W  = window.innerWidth,  H = window.innerHeight;
 
+      // Scale everything down on narrow screens
+      const sc = Math.min(1, W / 520);
+
       // Body dimensions (screen px)
-      const BW = 130, BH = 76;
+      const BW = Math.round(130 * sc), BH = Math.round(76 * sc);
       // Body top-left corner
-      const BX = W - BW - 22, BY = H - BH - 108;
+      const BX = W - BW - 14, BY = H - BH - Math.round(108 * sc);
       // Hose port: left-centre of body
       const portX = BX,       portY = BY + BH * 0.5 - 4;
-      // Nozzle target: above letter pile, near bottom-centre of screen
-      const nozX  = W * 0.60;   // 60% across, closer to letter pile
-      const nozY  = H - 22;     // resting on the floor
-      const nozW  = 80, nozH = 20;
+      // Nozzle target: 60% across screen, resting on floor
+      const nozX  = W * 0.60;
+      const nozY  = H - 18;
+      const nozW  = Math.round(80 * sc), nozH = Math.round(20 * sc);
       // Nozzle mouth is the LEFT end (faces left toward letter pile)
       _vacNX = nozX;
       _vacNY = nozY + nozH * 0.5;
 
       // Hose bezier: port → nozzle-collar
       const nozColX = nozX + nozW * 0.5, nozColY = nozY;
-      const cp1x = portX - 60, cp1y = portY + 80;
-      const cp2x = nozColX + 40, cp2y = nozColY - 100;
+      const cp1x = portX - Math.round(60 * sc),  cp1y = portY + Math.round(80 * sc);
+      const cp2x = nozColX + Math.round(40 * sc), cp2y = nozColY - Math.round(100 * sc);
       const hoseD = `M ${portX} ${portY} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${nozColX} ${nozColY}`;
 
       function set(id, attrs) {
@@ -651,7 +654,7 @@
       }
 
       // Hose
-      const hw = 14;
+      const hw = Math.round(14 * sc);
       ['vacHoseShadow','vacHoseOuter','vacHoseSheen','vacHoseInner'].forEach(id => set(id, {d: hoseD}));
       set('vacHoseShadow', {d: hoseD, 'stroke-width': hw + 4});
       set('vacHoseOuter',  {d: hoseD, 'stroke-width': hw});
@@ -667,45 +670,50 @@
       set('vacNozzleMouth',  {x: ns.x-2, y: ns.y+2, width: 12, height: ns.h-4});
       set('vacNozzleGlow',   {cx: ns.x-2, cy: ns.y+ns.h*0.5, r: 18});
       // Collar where hose meets nozzle (top-centre)
-      set('vacNozzleCollar1', {cx: nozColX, cy: nozColY+2, r: 12});
-      set('vacNozzleCollar2', {cx: nozColX, cy: nozColY+2, r:  6});
+      const cR = Math.round(12 * sc);
+      set('vacNozzleCollar1', {cx: nozColX, cy: nozColY+2, r: cR});
+      set('vacNozzleCollar2', {cx: nozColX, cy: nozColY+2, r: Math.round(cR*0.5)});
 
       // Wheels
-      const wR = 16;
+      const wR = Math.round(16 * sc);
       set('vacWheel1', {cx: BX + BW*0.28, cy: BY + BH + wR - 4, r: wR});
       set('vacWheel2', {cx: BX + BW*0.72, cy: BY + BH + wR - 4, r: wR});
-      set('vacAxle1',  {cx: BX + BW*0.28, cy: BY + BH + wR - 4, r:  6});
-      set('vacAxle2',  {cx: BX + BW*0.72, cy: BY + BH + wR - 4, r:  6});
+      set('vacAxle1',  {cx: BX + BW*0.28, cy: BY + BH + wR - 4, r: Math.max(3, Math.round(6*sc))});
+      set('vacAxle2',  {cx: BX + BW*0.72, cy: BY + BH + wR - 4, r: Math.max(3, Math.round(6*sc))});
 
       // Body
       set('vacBodyShadow', {x: BX+3, y: BY+5, width: BW, height: BH});
       set('vacBody',       {x: BX,   y: BY,   width: BW, height: BH});
-      set('vacBodySheen',  {x: BX+14, y: BY+5, width: BW*0.56, height: BH*0.36});
+      set('vacBodySheen',  {x: BX+Math.round(14*sc), y: BY+5, width: BW*0.56, height: BH*0.36});
 
       // Vents (right side of body — 3 vertical lines)
       const vg = document.getElementById('vacVents');
       if (vg) {
         vg.innerHTML = '';
-        const ns2 = (i) => { const l = document.createElementNS('http://www.w3.org/2000/svg','line');
-          const vx = BX + BW - 22 + i*7;
+        [0,1,2].forEach(i => {
+          const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+          const vx = BX + BW - Math.round(22*sc) + i * Math.round(7*sc);
           l.setAttribute('x1', vx); l.setAttribute('x2', vx);
-          l.setAttribute('y1', BY+10); l.setAttribute('y2', BY+BH-10);
-          vg.appendChild(l); };
-        [0,1,2].forEach(ns2);
+          l.setAttribute('y1', BY+Math.round(10*sc)); l.setAttribute('y2', BY+BH-Math.round(10*sc));
+          vg.appendChild(l);
+        });
       }
 
       // Label
-      set('vacLabelBg',  {x: BX+BW*0.25, y: BY+BH*0.42, width: 50, height: 18});
-      set('vacLabelTxt', {x: BX+BW*0.25+25, y: BY+BH*0.42+13, 'font-size': 8});
+      const lbW = Math.round(50*sc), lbH = Math.round(18*sc);
+      set('vacLabelBg',  {x: BX+BW*0.25, y: BY+BH*0.42, width: lbW, height: lbH});
+      set('vacLabelTxt', {x: BX+BW*0.25+lbW/2, y: BY+BH*0.42+lbH*0.76, 'font-size': Math.round(8*sc)});
 
       // Port
-      set('vacPort1', {cx: portX, cy: portY, r: 12});
-      set('vacPort2', {cx: portX, cy: portY, r:  6});
+      const pR = Math.round(12 * sc);
+      set('vacPort1', {cx: portX, cy: portY, r: pR});
+      set('vacPort2', {cx: portX, cy: portY, r: Math.round(pR*0.5)});
 
       // Power button (right side of body)
-      const btnCX = BX + BW - 18, btnCY = BY + BH*0.5;
-      set('vacBtn',     {cx: btnCX, cy: btnCY, r: 14});
-      set('vacBtnRing', {cx: btnCX, cy: btnCY, r: 14});
+      const btnR = Math.round(14 * sc);
+      const btnCX = BX + BW - Math.round(18*sc), btnCY = BY + BH*0.5;
+      set('vacBtn',     {cx: btnCX, cy: btnCY, r: btnR});
+      set('vacBtnRing', {cx: btnCX, cy: btnCY, r: btnR});
     }
 
     buildVacSvg();
