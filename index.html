@@ -137,7 +137,7 @@
     /* ── Vintage desk fan ──────────────────────────────────── */
     .fan-widget {
       position: fixed;
-      bottom: 88px;
+      bottom: 0;
       right: 18px;
       z-index: 9998;
       user-select: none;
@@ -242,6 +242,10 @@
         transform-origin: bottom right;
       }
     }
+
+    /* FAB hides when a tool is active */
+    .tlauncher { transition: opacity 0.22s, transform 0.22s; }
+    .tlauncher.tool-hidden { opacity: 0; pointer-events: none; transform: scale(0.7); }
 
     /* ── Tool Launcher & Radial Menu ──────────────────────────────── */
     .tlauncher {
@@ -630,7 +634,8 @@
       // Body dimensions (screen px)
       const BW = Math.round(130 * sc), BH = Math.round(76 * sc);
       // Body top-left corner
-      const BX = W - BW - 14, BY = H - BH - Math.round(108 * sc);
+      const wR0 = Math.round(16 * sc);  // wheel radius (needed for floor placement)
+      const BX  = W - BW - 14, BY = H - BH - 2 * wR0 + 4;
       // Hose port: left-centre of body
       const portX = BX,       portY = BY + BH * 0.5 - 4;
       // Nozzle target: 60% across screen, resting on floor
@@ -675,7 +680,7 @@
       set('vacNozzleCollar2', {cx: nozColX, cy: nozColY+2, r: Math.round(cR*0.5)});
 
       // Wheels
-      const wR = Math.round(16 * sc);
+      const wR = wR0;
       set('vacWheel1', {cx: BX + BW*0.28, cy: BY + BH + wR - 4, r: wR});
       set('vacWheel2', {cx: BX + BW*0.72, cy: BY + BH + wR - 4, r: wR});
       set('vacAxle1',  {cx: BX + BW*0.28, cy: BY + BH + wR - 4, r: Math.max(3, Math.round(6*sc))});
@@ -718,6 +723,7 @@
       const btnCX = BX + BW - Math.round(18*sc), btnCY = BY + BH*0.5;
       set('vacBtn',     {cx: btnCX, cy: btnCY, r: btnR});
       set('vacBtnRing', {cx: btnCX, cy: btnCY, r: btnR});
+
     }
 
     buildVacSvg();
@@ -733,7 +739,7 @@
 
     // Approximate screen position of the fan's centre (fixed widget, bottom-right)
     const fanCX = () => window.innerWidth  - 83;
-    const fanCY = () => window.innerHeight - 180;   // fan now at bottom: 88px
+    const fanCY = () => window.innerHeight - 92;    // fan at bottom: 0, centre ~92px up
 
     // ── Particle physics constants ───────────────────────────────
     const GRAVITY  = 0.52;    // px / frame²
@@ -1010,6 +1016,15 @@
         // Blades spin down
         bladesGroup.style.animationDuration = '0.62s';
         setTimeout(() => { if (!fanOn) bladesGroup.style.animationName = 'none'; }, 750);
+
+        // Auto-hide widget and restore FAB (only when widget is still visible,
+        // i.e. user pressed the button — not when deactivateCurrentTool hid it first)
+        if (fanWidget.style.display !== 'none') {
+          fanWidget.style.display = 'none';
+          toptFan.classList.remove('active');
+          activeTool = null;
+          setLauncher(true);
+        }
       }
     });
 
@@ -1148,6 +1163,14 @@
       vacBtn.setAttribute('fill', `url(#${vacOn ? 'vbon' : 'vboff'})`);
       vacuumWidget.classList.toggle('vac-on', vacOn);
       ensureLoop();
+
+      // Auto-hide widget and restore FAB when turned off
+      if (!vacOn && vacuumWidget.style.display !== 'none') {
+        vacuumWidget.style.display = 'none';
+        toptVac.classList.remove('active');
+        activeTool = null;
+        setLauncher(true);
+      }
     });
 
     // ── Add task ─────────────────────────────────────────────────
@@ -1236,7 +1259,14 @@
         setMenuOpen(false);
     });
 
-    // Helper: deactivate any currently active tool
+    // Show/hide the FAB launcher
+    function setLauncher(visible) {
+      document.getElementById('tlauncher').classList.toggle('tool-hidden', !visible);
+    }
+
+    // Deactivate whatever tool is active, restore FAB.
+    // Widget is hidden BEFORE clicking the power button so the button handler's
+    // "auto-hide on off" check (display !== 'none') doesn't double-fire.
     function deactivateCurrentTool() {
       if (activeTool === 'fan') {
         toptFan.classList.remove('active');
@@ -1249,6 +1279,7 @@
         if (vacOn) vacBtn.click();
       }
       activeTool = null;
+      setLauncher(true);
     }
 
     // Fan option
@@ -1259,8 +1290,9 @@
         activeTool = 'fan';
         toptFan.classList.add('active');
         fanWidget.style.display = '';
+        setMenuOpen(false);
+        setLauncher(false);
       }
-      setMenuOpen(false);
     });
 
     // Vacuum option
@@ -1271,9 +1303,11 @@
         activeTool = 'vac';
         toptVac.classList.add('active');
         vacuumWidget.style.display = '';
+        setMenuOpen(false);
+        setLauncher(false);
       }
-      setMenuOpen(false);
     });
+
 
     // Seed example tasks
     ['Buy groceries', 'Read for 30 minutes', 'Go for a walk']
