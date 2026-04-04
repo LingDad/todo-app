@@ -478,7 +478,7 @@
       </defs>
 
       <!-- All geometry is drawn by buildVacSvg() in JS, so elements are placed here as targets -->
-      <g id="vacHoseGroup" filter="url(#vShadow)">
+      <g id="vacHoseGroup">
         <path id="vacHoseShadow" fill="none" stroke="rgba(0,0,0,0.28)" stroke-linecap="round"/>
         <path id="vacHoseOuter"  fill="none" stroke="#28140a" stroke-linecap="round" stroke-dasharray="13,6"/>
         <path id="vacHoseSheen"  fill="none" stroke="#7a5c3c" stroke-linecap="round" stroke-dasharray="5,14" stroke-dashoffset="4"/>
@@ -625,7 +625,7 @@
       const W  = window.innerWidth,  H = window.innerHeight;
 
       // Scale everything down on narrow screens
-      const sc = Math.min(1, W / 520);
+      const sc = Math.min(1, W / 780);
 
       // Body dimensions (screen px)
       const BW = Math.round(130 * sc), BH = Math.round(76 * sc);
