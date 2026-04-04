@@ -398,6 +398,25 @@
       height: 100%;
       pointer-events: none;
     }
+    /* ── Trash Bin ───────────────────────────────────────────── */
+    .trash-widget {
+      position: fixed;
+      bottom: 0;
+      right: 14px;
+      z-index: 9995;
+      pointer-events: none;
+      user-select: none;
+    }
+    #trashLid {
+      transition: transform 0.38s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .trash-widget.tor-on #trashLid {
+      transform: translateY(-10px);
+    }
+    .trash-widget.trash-gulp #trashLid {
+      transform: translateY(-18px);
+    }
+
     .tor-btn {
       position: absolute;
       left: 50%;
@@ -582,6 +601,52 @@
         <!-- Power button -->
         <circle id="vacBtn" fill="url(#vboff)" stroke="#3e0812" stroke-width="2" style="pointer-events:all;cursor:pointer"/>
         <circle id="vacBtnRing" fill="none" stroke="rgba(255,180,150,0.18)" stroke-width="2.5"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- ── Trash Bin ───────────────────────────────────────── -->
+  <div class="trash-widget" id="trashWidget" style="display:none">
+    <svg id="trashSvg" viewBox="0 0 72 92" width="72" height="92" aria-hidden="true" overflow="visible">
+      <defs>
+        <linearGradient id="trashBodyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stop-color="#7a6848"/>
+          <stop offset="38%"  stop-color="#a89068"/>
+          <stop offset="100%" stop-color="#7a6848"/>
+        </linearGradient>
+        <linearGradient id="trashLidGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stop-color="#6a5838"/>
+          <stop offset="42%"  stop-color="#988060"/>
+          <stop offset="100%" stop-color="#6a5838"/>
+        </linearGradient>
+        <filter id="trashShadow">
+          <feDropShadow dx="2" dy="5" stdDeviation="5" flood-opacity="0.38"/>
+        </filter>
+      </defs>
+      <!-- Ground shadow -->
+      <ellipse cx="36" cy="90" rx="26" ry="5" fill="rgba(0,0,0,0.20)"/>
+      <!-- Body (trapezoid) -->
+      <path d="M 9 30 L 6 83 L 66 83 L 63 30 Z"
+            fill="url(#trashBodyGrad)" stroke="#5a4830" stroke-width="1.5"
+            filter="url(#trashShadow)"/>
+      <!-- Body sheen -->
+      <path d="M 11 30 L 9 58 L 17 58 L 19 30 Z" fill="rgba(255,240,200,0.13)"/>
+      <!-- Vertical stripe lines -->
+      <line x1="23" y1="32" x2="21" y2="81" stroke="#6a5838" stroke-width="1.2" opacity="0.50"/>
+      <line x1="36" y1="32" x2="36" y2="81" stroke="#6a5838" stroke-width="1.2" opacity="0.50"/>
+      <line x1="49" y1="32" x2="51" y2="81" stroke="#6a5838" stroke-width="1.2" opacity="0.50"/>
+      <!-- Rim -->
+      <rect x="5" y="25" width="62" height="8" rx="3"
+            fill="url(#trashLidGrad)" stroke="#4a3820" stroke-width="1.2"/>
+      <!-- Handle knob -->
+      <rect x="28" y="3" width="16" height="9" rx="4.5"
+            fill="#8a7050" stroke="#4a3420" stroke-width="1.2"/>
+      <!-- Lid -->
+      <g id="trashLid">
+        <rect x="3" y="10" width="66" height="17" rx="5"
+              fill="url(#trashLidGrad)" stroke="#4a3820" stroke-width="1.5"/>
+        <rect x="5" y="11" width="28" height="7" rx="3"
+              fill="rgba(255,242,205,0.22)"/>
       </g>
     </svg>
   </div>
@@ -1094,6 +1159,9 @@
           if (!p.settled) anyActive = true;
         }
 
+        // Check if letters fall into the trash bin
+        checkTrashAbsorb();
+
         // Keep loop alive while wind/vacuum is active or letters are still moving
         if (anyActive || windStrength > 0 || (fanOn && windRamping) || vacuumStrength > 0 || torStrength > 0) requestAnimationFrame(tick);
         else loopRunning = false;
@@ -1459,18 +1527,66 @@
       if (!_torRafId) _torRafId = requestAnimationFrame(_torLoop);
     }
 
+    // ── Trash bin ────────────────────────────────────────────────
+    const trashWidget = document.getElementById('trashWidget');
+    const TRASH_W = 72, TRASH_H = 92;
+
+    // Screen rect of the bin opening (top of body, below lid)
+    function trashOpening() {
+      const W = window.innerWidth, H = window.innerHeight;
+      return {
+        l: W - 14 - TRASH_W + 6,   // left edge of trapezoid opening
+        r: W - 14 - 6,              // right edge
+        t: H - TRASH_H + 28,        // top of body (below rim)
+        b: H - TRASH_H + 52,        // mid-body (letters should stop here)
+      };
+    }
+
+    function playTrashGulp() {
+      if (AC.state === 'suspended') AC.resume();
+      _noise(0.14, 0.06, 600, 2.2, 'bandpass');   // paper crinkle
+      _tone(140, 0.07, 0.10, 'sine');               // soft thud
+    }
+
+    function checkTrashAbsorb() {
+      if (trashWidget.style.display === 'none') return;
+      const o = trashOpening();
+      let gulped = false;
+      for (const p of allParticles) {
+        if (p.gone) continue;
+        const cx = p.x + p.w * 0.5, cy = p.y + p.h * 0.5;
+        if (cx > o.l && cx < o.r && cy > o.t && cy < o.b && p.vy > 0) {
+          // Letter falls into bin — shrink + fade, then remove
+          p.gone = true; heightMapDirty = true;
+          p.el.style.transition = 'transform 0.18s ease-in, opacity 0.18s';
+          p.el.style.transform  = 'scale(0.05)';
+          p.el.style.opacity    = '0';
+          setTimeout(() => p.el.remove(), 200);
+          gulped = true;
+        }
+      }
+      if (gulped) {
+        playTrashGulp();
+        // Lid bounces open briefly
+        trashWidget.classList.add('trash-gulp');
+        setTimeout(() => trashWidget.classList.remove('trash-gulp'), 320);
+      }
+    }
+
     torBtn.addEventListener('click', e => {
       e.stopPropagation();   // don't trigger drag-start on the parent
       torOn = !torOn;
       torBtn.classList.toggle('on', torOn);
       playTorSwitch(torOn);
       tornadoWidget.classList.toggle('tor-on', torOn);
+      trashWidget.classList.toggle('tor-on', torOn);
       if (torOn) {
         _initTornadoSound();
         ensureLoop();
       } else {
         if (tornadoWidget.style.display !== 'none') {
           tornadoWidget.style.display = 'none';
+          trashWidget.style.display = 'none';
           toptTor.classList.remove('active');
           activeTool = null;
           setLauncher(true);
@@ -1605,6 +1721,7 @@
       if (activeTool === 'tor') {
         toptTor.classList.remove('active');
         tornadoWidget.style.display = 'none';
+        trashWidget.style.display = 'none';
         if (torOn) torBtn.click();
       }
       activeTool = null;
@@ -1645,6 +1762,7 @@
         activeTool = 'tor';
         toptTor.classList.add('active');
         tornadoWidget.style.display = '';
+        trashWidget.style.display = '';
         positionTorCore();
         startTorCanvas();
         setMenuOpen(false);
