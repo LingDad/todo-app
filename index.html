@@ -1550,10 +1550,10 @@
     function layoutOptions() {
       const opts = [...tradial.querySelectorAll('.toption')];
       const n = opts.length;
-      const R = 78;
-      // Sweep 105°–165° (upper-left quadrant); single item lands at 135°
+      const R = 90;
+      // Sweep 105°–195° (upper-left quadrant); single item lands at 135°
       const mid    = 135 * Math.PI / 180;
-      const spread = Math.min(60, (n - 1) * 50) * Math.PI / 180;
+      const spread = Math.min(76, (n - 1) * 38) * Math.PI / 180;
       opts.forEach((opt, i) => {
         const a  = mid + (n === 1 ? 0 : (i / (n - 1) - 0.5) * spread);
         opt._dx  =  Math.cos(a) * R;   // cos(135°) is already negative → moves left
