@@ -418,11 +418,12 @@
         vr: (Math.random() - 0.5) * 18,
         rot: 0,
         drag:        0.008 + Math.random() * 0.010,  // per-letter air-resistance variety
-        restitution: 0.12  + Math.random() * 0.22,
+        restitution: 0.55  + Math.random() * 0.13,
         mu:          0.48  + Math.random() * 0.36,
         sleepN: 0,
-        settled: false,
-        gone:    false,
+        settled:  false,
+        gone:     false,
+        airborne: true,
       };
     }
 
@@ -478,7 +479,7 @@
 
       // ⑧ Surface collision with slope-aware normal decomposition
       const surface = getFloorAt(p.x, p.w);
-      if (p.y + p.h < surface) { p.sleepN = 0; return; }   // airborne
+      if (p.y + p.h < surface) { p.airborne = true; p.sleepN = 0; return; }   // airborne
 
       p.y = surface - p.h;   // place on surface
 
@@ -488,7 +489,11 @@
       const nx   = slp / nLen,  ny = -1 / nLen;
       const vn   = p.vx * nx + p.vy * ny;   // normal velocity (negative = hitting surface)
 
+      const wasAirborne = p.airborne;
+      p.airborne = false;
+
       if (vn < 0) {
+        if (wasAirborne) playLand(-vn, surface < window.innerHeight - 8);
         const j = -(1 + p.restitution) * vn;
         p.vx += j * nx;
         p.vy += j * ny;
@@ -528,13 +533,16 @@
         // Ramp wind strength — only after head has finished turning (windRamping flag)
         if      (fanOn && windRamping  && windStrength < 1) windStrength = Math.min(1, windStrength + WIND_RAMP_UP);
         else if ((!fanOn || !windRamping) && windStrength > 0) windStrength = Math.max(0, windStrength - WIND_RAMP_DOWN);
+        setWind(windStrength);
 
         // Rebuild height map when letters were dislodged by wind
         if (heightMapDirty) { rebuildHeightMap(); heightMapDirty = false; }
 
         // Wind pre-pass: un-settle resting letters so they enter the physics loop.
         // Closer letters to the fan get dislodged first (gradual cascade effect).
-        if (windStrength > 0) {
+        // Only runs while fan is actively blowing — not during the ramp-down after
+        // the fan is switched off, so letters stay where physics left them.
+        if (windStrength > 0 && windRamping) {
           const fcx = fanCX(), fcy = fanCY();
           for (const p of allParticles) {
             if (!p.settled || p.gone) continue;
@@ -574,8 +582,10 @@
     fanBtn.addEventListener('click', () => {
       fanOn = !fanOn;
       fanBtn.classList.toggle('on', fanOn);
+      playFanSwitch(fanOn);
 
       if (fanOn) {
+        _initWind();
         // ① Blades spin up (slow → fast)
         bladesGroup.style.cssText =
           'animation-name:fanSpin;animation-timing-function:linear;' +
@@ -609,6 +619,98 @@
       }
     });
 
+    // ══════════════════════════════════════════════════════════════
+    // ── Web Audio Engine ─────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════
+    const AC  = new (window.AudioContext || window.webkitAudioContext)();
+    const _out = (() => {
+      const g = AC.createGain(); g.gain.value = 0.78; g.connect(AC.destination); return g;
+    })();
+
+    // Short oscillator tone (freq Hz, vol 0-1, dur seconds, wave type)
+    function _tone(freq, vol, dur, type = 'sine') {
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, AC.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + dur);
+      o.connect(g); g.connect(_out); o.start(); o.stop(AC.currentTime + dur + 0.01);
+    }
+
+    // Short noise burst with filter
+    function _noise(vol, dur, fq = 800, q = 1, tp = 'lowpass') {
+      const len = Math.ceil(AC.sampleRate * Math.min(dur, 0.5));
+      const buf = AC.createBuffer(1, len, AC.sampleRate);
+      const d   = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+      s.buffer = buf; f.type = tp; f.frequency.value = fq; f.Q.value = q;
+      g.gain.setValueAtTime(vol, AC.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + dur);
+      s.connect(f); f.connect(g); g.connect(_out); s.start(); s.stop(AC.currentTime + dur + 0.01);
+    }
+
+    // ① Task check — ascending ding (like a typewriter bell)
+    function playCheck() {
+      if (AC.state === 'suspended') AC.resume();
+      _noise(0.06, 0.018, 4500);
+      _tone(587, 0.18, 0.22);
+      setTimeout(() => _tone(880, 0.12, 0.32), 75);
+    }
+
+    // ② Letter landing — floor thud vs. paper-on-paper crinkle
+    let _landClock = 0;
+    function playLand(impact, onLetters) {
+      if (impact < 1.5) return;
+      const now = AC.currentTime;
+      if (now - _landClock < 0.038) return;   // throttle: max ~26 sounds/s
+      _landClock = now;
+      const vol = Math.min(0.20, impact * 0.012);
+      if (onLetters) {
+        _noise(vol, 0.055, 2200, 1.8, 'bandpass');   // crisp paper-on-paper
+      } else {
+        _noise(vol * 0.85, 0.07, 320, 1);             // dull thud
+        _tone(95, vol * 0.30, 0.055);                  // bass resonance
+      }
+    }
+
+    // ③ Fan power switch — hard click + motor spin-up or spin-down
+    function playFanSwitch(on) {
+      if (AC.state === 'suspended') AC.resume();
+      _noise(0.38, 0.016, 5500, 1.5);           // mechanical click
+      const t = AC.currentTime + 0.02;
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(on ? 45 : 160, t);
+      o.frequency.exponentialRampToValueAtTime(on ? 190 : 38, t + 0.75);
+      g.gain.setValueAtTime(0.065, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.78);
+      o.connect(g); g.connect(_out); o.start(t); o.stop(t + 0.80);
+    }
+
+    // ④ Wind ambient — looped brownian noise, gain tracks windStrength
+    let _wGain = null;
+    function _initWind() {
+      if (_wGain) return;
+      const rate = AC.sampleRate, len = rate * 4;
+      const buf = AC.createBuffer(1, len, rate);
+      const d   = buf.getChannelData(0);
+      let b = 0, mx = 0;
+      for (let i = 0; i < len; i++) {
+        b = b * 0.993 + (Math.random() - 0.5) * 0.062;
+        d[i] = b; mx = Math.max(mx, Math.abs(b));
+      }
+      if (mx > 0) for (let i = 0; i < len; i++) d[i] /= mx;   // normalise
+      const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+      const lp  = AC.createBiquadFilter(); lp.type  = 'lowpass';  lp.frequency.value = 1100;
+      const hp  = AC.createBiquadFilter(); hp.type  = 'highpass'; hp.frequency.value = 160;
+      _wGain = AC.createGain(); _wGain.gain.value = 0;
+      src.connect(lp); lp.connect(hp); hp.connect(_wGain); _wGain.connect(_out);
+      src.start();
+    }
+    function setWind(s) {
+      if (_wGain) _wGain.gain.setTargetAtTime(s * 0.15, AC.currentTime, 0.28);
+    }
+
     // ── Add task ─────────────────────────────────────────────────
     function addTask() {
       const text = input.value.trim();
@@ -626,6 +728,7 @@
 
     // ── Complete — scatter letters ────────────────────────────────
     function complete(li, cb, span) {
+      playCheck();
       cb.classList.add('checked');
       li.style.pointerEvents = 'none';
       const chars = [...span.textContent];
