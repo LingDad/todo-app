@@ -75,6 +75,7 @@
       padding: 14px 0;
       border-bottom: 1px solid #e5e4df;
       animation: fadeIn 0.25s ease;
+      flex-wrap: wrap;
     }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(-6px); }
@@ -119,6 +120,90 @@
       line-height: 1.5;
       word-break: break-word;
       user-select: none;
+    }
+
+    .todo-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .todo-meta {
+      margin-top: 4px;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: #6f675b;
+    }
+
+    .todo-meta.due-now {
+      color: #8a1f18;
+    }
+
+    .reminder-btn {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border: 1px solid #d0cfc9;
+      border-radius: 8px;
+      background: #fff;
+      color: #5b554c;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: -3px;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .reminder-btn:hover,
+    .reminder-btn.active {
+      border-color: #888;
+      color: #1a1a1a;
+      background: #faf9f4;
+    }
+
+    .reminder-panel {
+      width: calc(100% - 34px);
+      margin-left: 34px;
+      display: none;
+      gap: 8px;
+      padding: 10px 0 2px;
+    }
+    .todo-item.reminder-open .reminder-panel {
+      display: grid;
+    }
+    .reminder-panel input,
+    .reminder-panel textarea {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid #d0cfc9;
+      border-radius: 8px;
+      background: #fff;
+      color: #1a1a1a;
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .reminder-panel textarea {
+      min-height: 62px;
+      resize: vertical;
+    }
+    .reminder-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .reminder-actions button {
+      padding: 8px 12px;
+      border: 1px solid #d0cfc9;
+      border-radius: 8px;
+      background: #fff;
+      color: #1a1a1a;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .reminder-actions .save-reminder {
+      background: #1a1a1a;
+      border-color: #1a1a1a;
+      color: #fff;
     }
 
     /* Falling letters */
@@ -1612,23 +1697,226 @@
     torCore.addEventListener('pointerup',     () => { _torDrag = false; });
     torCore.addEventListener('pointercancel', () => { _torDrag = false; });
 
+    // ── Tasks / persistence ──────────────────────────────────────
+    const TASK_STORAGE_KEY = 'funnyTodo.tasks';
+    const DEFAULT_TASKS = ['Buy groceries', 'Read for 30 minutes', 'Go for a walk'];
+
+    function createTaskId() {
+      return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function readStoredTasks() {
+      try {
+        const raw = localStorage.getItem(TASK_STORAGE_KEY);
+        if (raw === null) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(task => {
+          if (typeof task === 'string') task = { text: task };
+          if (!task || typeof task.text !== 'string') return null;
+          const text = task.text.trim();
+          if (!text) return null;
+          return {
+            id: typeof task.id === 'string' ? task.id : createTaskId(),
+            text,
+            dueAt: typeof task.dueAt === 'string' ? task.dueAt : '',
+            reminderNote: typeof task.reminderNote === 'string' ? task.reminderNote : '',
+            remindedAt: typeof task.remindedAt === 'number' ? task.remindedAt : null,
+          };
+        }).filter(Boolean);
+      } catch (err) {
+        console.warn('Could not read stored tasks:', err);
+        return null;
+      }
+    }
+
+    function saveTasks() {
+      try {
+        localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(todoTasks));
+      } catch (err) {
+        console.warn('Could not save tasks:', err);
+      }
+    }
+
+    let todoTasks = readStoredTasks();
+    if (todoTasks === null) {
+      todoTasks = DEFAULT_TASKS.map(text => ({
+        id: createTaskId(),
+        text,
+        dueAt: '',
+        reminderNote: '',
+        remindedAt: null,
+      }));
+      saveTasks();
+    }
+
+    function removeStoredTask(id) {
+      todoTasks = todoTasks.filter(task => task.id !== id);
+      saveTasks();
+    }
+
+    function updateStoredTask(id, updates) {
+      todoTasks = todoTasks.map(task => task.id === id ? {...task, ...updates} : task);
+      saveTasks();
+    }
+
+    function findTask(id) {
+      return todoTasks.find(task => task.id === id);
+    }
+
+    function formatReminder(task) {
+      if (!task.dueAt && !task.reminderNote) return '';
+      const parts = [];
+      if (task.dueAt) {
+        const due = new Date(task.dueAt);
+        if (!Number.isNaN(due.getTime())) {
+          parts.push(`Due ${due.toLocaleString([], {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })}`);
+        }
+      }
+      if (task.reminderNote) parts.push(task.reminderNote);
+      return parts.join(' - ');
+    }
+
+    function renderReminderMeta(meta, task) {
+      const text = formatReminder(task);
+      meta.textContent = text;
+      meta.hidden = !text;
+      const dueMs = task.dueAt ? new Date(task.dueAt).getTime() : NaN;
+      meta.classList.toggle('due-now', Number.isFinite(dueMs) && dueMs <= Date.now());
+    }
+
     // ── Add task ─────────────────────────────────────────────────
     function addTask() {
       const text = input.value.trim();
       if (!text) return;
       input.value = '';
+      const task = { id: createTaskId(), text, dueAt: '', reminderNote: '', remindedAt: null };
+      todoTasks.push(task);
+      saveTasks();
+      renderTask(task);
+    }
+
+    function renderTask(task) {
       const li   = document.createElement('li');  li.className = 'todo-item';
+      li.dataset.taskId = task.id;
       const cb   = document.createElement('div'); cb.className = 'check-box';
+      const body = document.createElement('div'); body.className = 'todo-content';
       const span = document.createElement('span'); span.className = 'todo-text';
-      span.textContent = text;
-      li.appendChild(cb); li.appendChild(span); list.appendChild(li);
-      cb.addEventListener('click', () => complete(li, cb, span));
+      const meta = document.createElement('div'); meta.className = 'todo-meta';
+      const reminderBtn = document.createElement('button');
+      const panel = document.createElement('div'); panel.className = 'reminder-panel';
+      const timeInput = document.createElement('input');
+      const noteInput = document.createElement('textarea');
+      const actions = document.createElement('div'); actions.className = 'reminder-actions';
+      const clearBtn = document.createElement('button');
+      const saveBtn = document.createElement('button');
+
+      span.textContent = task.text;
+      renderReminderMeta(meta, task);
+
+      reminderBtn.className = 'reminder-btn';
+      reminderBtn.type = 'button';
+      reminderBtn.title = 'Set reminder';
+      reminderBtn.setAttribute('aria-label', `Set reminder for ${task.text}`);
+      reminderBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"></circle><path d="M12 9v4l3 2"></path><path d="M7 3 4 6"></path><path d="m17 3 3 3"></path></svg>';
+      reminderBtn.classList.toggle('active', Boolean(task.dueAt || task.reminderNote));
+
+      timeInput.type = 'datetime-local';
+      timeInput.value = task.dueAt || '';
+      noteInput.placeholder = 'Reminder note';
+      noteInput.maxLength = 160;
+      noteInput.value = task.reminderNote || '';
+      clearBtn.type = 'button';
+      clearBtn.textContent = 'Clear';
+      saveBtn.type = 'button';
+      saveBtn.className = 'save-reminder';
+      saveBtn.textContent = 'Save';
+
+      actions.appendChild(clearBtn);
+      actions.appendChild(saveBtn);
+      panel.appendChild(timeInput);
+      panel.appendChild(noteInput);
+      panel.appendChild(actions);
+      body.appendChild(span);
+      body.appendChild(meta);
+      li.appendChild(cb);
+      li.appendChild(body);
+      li.appendChild(reminderBtn);
+      li.appendChild(panel);
+      list.appendChild(li);
+
+      cb.addEventListener('click', () => complete(li, cb, span, task.id));
+      reminderBtn.addEventListener('click', () => {
+        li.classList.toggle('reminder-open');
+        if (li.classList.contains('reminder-open')) timeInput.focus();
+      });
+      saveBtn.addEventListener('click', async () => {
+        const dueAt = timeInput.value;
+        const reminderNote = noteInput.value.trim();
+        const nextTask = {...findTask(task.id), dueAt, reminderNote, remindedAt: null};
+        updateStoredTask(task.id, {dueAt, reminderNote, remindedAt: null});
+        renderReminderMeta(meta, nextTask);
+        reminderBtn.classList.toggle('active', Boolean(dueAt || reminderNote));
+        li.classList.remove('reminder-open');
+        if (dueAt && 'Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
+      });
+      clearBtn.addEventListener('click', () => {
+        timeInput.value = '';
+        noteInput.value = '';
+        const nextTask = {...findTask(task.id), dueAt: '', reminderNote: '', remindedAt: null};
+        updateStoredTask(task.id, {dueAt: '', reminderNote: '', remindedAt: null});
+        renderReminderMeta(meta, nextTask);
+        reminderBtn.classList.remove('active');
+        li.classList.remove('reminder-open');
+      });
+    }
+
+    function refreshReminder(task) {
+      for (const item of list.children) {
+        if (item.dataset.taskId !== task.id) continue;
+        const meta = item.querySelector('.todo-meta');
+        if (meta) renderReminderMeta(meta, task);
+        break;
+      }
+    }
+
+    function notifyReminder(task) {
+      const body = task.reminderNote || task.text;
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`Todo reminder: ${task.text}`, { body });
+      }
+      document.title = `Reminder: ${task.text}`;
+      setTimeout(() => { document.title = 'To-do'; }, 6000);
+    }
+
+    function checkReminders() {
+      const now = Date.now();
+      let changed = false;
+      todoTasks = todoTasks.map(task => {
+        if (!task.dueAt || task.remindedAt) return task;
+        const dueMs = new Date(task.dueAt).getTime();
+        if (!Number.isFinite(dueMs) || dueMs > now) return task;
+        const nextTask = {...task, remindedAt: now};
+        notifyReminder(nextTask);
+        refreshReminder(nextTask);
+        changed = true;
+        return nextTask;
+      });
+      if (changed) saveTasks();
     }
     addBtn.addEventListener('click', addTask);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
 
     // ── Complete — scatter letters ────────────────────────────────
-    function complete(li, cb, span) {
+    function complete(li, cb, span, taskId) {
+      removeStoredTask(taskId);
       playCheck();
       cb.classList.add('checked');
       li.style.pointerEvents = 'none';
@@ -1770,9 +2058,9 @@
       }
     });
 
-    // Seed example tasks
-    ['Buy groceries', 'Read for 30 minutes', 'Go for a walk']
-      .forEach(t => { input.value = t; addTask(); });
+    todoTasks.forEach(renderTask);
+    checkReminders();
+    setInterval(checkReminders, 30000);
   </script>
 </body>
 </html>
