@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>To-do</title>
+  <title>Weekly To-do</title>
   <link rel="icon" type="image/svg+xml"
     href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23f5f4f0'/%3E%3Ccircle cx='30' cy='34' r='15' fill='none' stroke='%231a1a1a' stroke-width='4.5'/%3E%3Cpath d='M22 34.5l5.5 5.5L39 28.5' fill='none' stroke='%231a1a1a' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='47' cy='19' r='10' fill='%23c8aa6a'/%3E%3Cpath d='M47 14.5v5l3 2' fill='none' stroke='%23fffdf7' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <style>
@@ -24,12 +24,37 @@
       max-width: 520px;
     }
 
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
     h1 {
       font-size: 2rem;
       font-weight: normal;
       color: #1a1a1a;
-      margin-bottom: 32px;
       letter-spacing: -0.5px;
+    }
+
+    .export-btn {
+      flex-shrink: 0;
+      padding: 9px 12px;
+      border: 1px solid #d0cfc9;
+      border-radius: 8px;
+      background: #fff;
+      color: #1a1a1a;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .export-btn:hover {
+      border-color: #888;
+      background: #faf9f4;
     }
 
     /* Input */
@@ -129,18 +154,58 @@
       min-width: 0;
     }
 
-    .todo-meta {
+    .subtask-list {
+      margin-top: 8px;
+      margin-left: 0;
+      color: #5f584e;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      list-style: none;
+    }
+    .subtask-list:empty {
+      display: none;
+    }
+    .subtask-list li + li {
       margin-top: 4px;
-      font-size: 0.78rem;
-      line-height: 1.35;
-      color: #6f675b;
+    }
+    .subtask-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .subtask-check {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      border: 1.4px solid #c0bfba;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+    .subtask-check.checked {
+      background: #1a1a1a;
+      border-color: #1a1a1a;
+    }
+    .subtask-check.checked::after {
+      content: '';
+      width: 4px;
+      height: 7px;
+      border: 1.6px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translateY(-1px);
+    }
+    .subtask-text.done {
+      color: #8a867d;
+      text-decoration: line-through;
     }
 
-    .todo-meta.due-now {
-      color: #8a1f18;
-    }
-
-    .reminder-btn {
+    .edit-btn {
       flex-shrink: 0;
       width: 28px;
       height: 28px;
@@ -155,25 +220,25 @@
       margin-top: -3px;
       transition: border-color 0.2s, color 0.2s, background 0.2s;
     }
-    .reminder-btn:hover,
-    .reminder-btn.active {
+    .edit-btn:hover,
+    .edit-btn.active {
       border-color: #888;
       color: #1a1a1a;
       background: #faf9f4;
     }
 
-    .reminder-panel {
+    .edit-panel {
       width: calc(100% - 34px);
       margin-left: 34px;
       display: none;
       gap: 8px;
       padding: 10px 0 2px;
     }
-    .todo-item.reminder-open .reminder-panel {
+    .todo-item.edit-open .edit-panel {
       display: grid;
     }
-    .reminder-panel input,
-    .reminder-panel textarea {
+    .edit-panel input,
+    .edit-panel textarea {
       width: 100%;
       padding: 9px 10px;
       border: 1px solid #d0cfc9;
@@ -184,16 +249,21 @@
       font-size: 0.9rem;
       outline: none;
     }
-    .reminder-panel textarea {
-      min-height: 62px;
+    .edit-panel textarea {
+      min-height: 104px;
       resize: vertical;
     }
-    .reminder-actions {
+    .edit-panel .field-label {
+      font-size: 0.78rem;
+      color: #6f675b;
+      line-height: 1.2;
+    }
+    .edit-actions {
       display: flex;
       gap: 8px;
       justify-content: flex-end;
     }
-    .reminder-actions button {
+    .edit-actions button {
       padding: 8px 12px;
       border: 1px solid #d0cfc9;
       border-radius: 8px;
@@ -202,7 +272,7 @@
       cursor: pointer;
       font-family: inherit;
     }
-    .reminder-actions .save-reminder {
+    .edit-actions .save-edit {
       background: #1a1a1a;
       border-color: #1a1a1a;
       color: #fff;
@@ -535,7 +605,10 @@
 </head>
 <body>
   <div class="app">
-    <h1>Funny To-do</h1>
+    <div class="app-header">
+      <h1>Weekly To-do</h1>
+      <button class="export-btn" id="exportWeeklyBtn" type="button">导出 weekly task</button>
+    </div>
     <div class="add-row">
       <input type="text" id="taskInput" placeholder="Add a task…" maxlength="120" />
       <button class="add-btn" id="addBtn" title="Add">+</button>
@@ -792,6 +865,7 @@
     const input  = document.getElementById('taskInput');
     const addBtn = document.getElementById('addBtn');
     const list   = document.getElementById('todoList');
+    const exportWeeklyBtn = document.getElementById('exportWeeklyBtn');
 
     // ── Height map ───────────────────────────────────────────────
     // heightMap[i] = top-y of the pile surface at column i*CELL.
@@ -1701,10 +1775,27 @@
 
     // ── Tasks / persistence ──────────────────────────────────────
     const TASK_STORAGE_KEY = 'funnyTodo.tasks';
+    const WEEKLY_DONE_STORAGE_KEY = 'weeklyTodo.completedTasks';
+    const WEEKLY_MARKDOWN_STORAGE_KEY = 'weeklyTodo.markdown';
     const DEFAULT_TASKS = ['Buy groceries', 'Read for 30 minutes', 'Go for a walk'];
 
     function createTaskId() {
       return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function normalizeSubtasks(subtasks) {
+      if (!Array.isArray(subtasks)) return [];
+      return subtasks.map(item => {
+        if (typeof item === 'string') item = { text: item };
+        if (!item || typeof item.text !== 'string') return null;
+        const text = item.text.trim();
+        if (!text) return null;
+        return {
+          id: typeof item.id === 'string' ? item.id : createTaskId(),
+          text,
+          done: item.done === true,
+        };
+      }).filter(Boolean);
     }
 
     function readStoredTasks() {
@@ -1721,14 +1812,34 @@
           return {
             id: typeof task.id === 'string' ? task.id : createTaskId(),
             text,
-            dueAt: typeof task.dueAt === 'string' ? task.dueAt : '',
-            reminderNote: typeof task.reminderNote === 'string' ? task.reminderNote : '',
-            remindedAt: typeof task.remindedAt === 'number' ? task.remindedAt : null,
+            subtasks: normalizeSubtasks(task.subtasks),
           };
         }).filter(Boolean);
       } catch (err) {
         console.warn('Could not read stored tasks:', err);
         return null;
+      }
+    }
+
+    function readCompletedTasks() {
+      try {
+        const raw = localStorage.getItem(WEEKLY_DONE_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(task => {
+          if (!task || typeof task.text !== 'string') return null;
+          const text = task.text.trim();
+          if (!text) return null;
+          return {
+            id: typeof task.id === 'string' ? task.id : createTaskId(),
+            text,
+            subtasks: normalizeSubtasks(task.subtasks),
+            completedAt: typeof task.completedAt === 'string' ? task.completedAt : new Date().toISOString(),
+          };
+        }).filter(Boolean);
+      } catch (err) {
+        console.warn('Could not read completed tasks:', err);
+        return [];
       }
     }
 
@@ -1740,56 +1851,172 @@
       }
     }
 
+    function saveCompletedTasks() {
+      try {
+        localStorage.setItem(WEEKLY_DONE_STORAGE_KEY, JSON.stringify(completedTasks));
+      } catch (err) {
+        console.warn('Could not save completed tasks:', err);
+      }
+    }
+
+    function escapeMarkdown(text) {
+      return text.replace(/\\/g, '\\\\').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+    }
+
+    function formatExportDate(date = new Date()) {
+      return date.toISOString().slice(0, 10);
+    }
+
+    function buildWeeklyMarkdown() {
+      const lines = [
+        '# Weekly To-do',
+        '',
+        `Exported: ${new Date().toLocaleString()}`,
+        '',
+        '## Completed tasks',
+        '',
+      ];
+
+      if (completedTasks.length === 0) {
+        lines.push('- No completed tasks yet.');
+      } else {
+        for (const task of completedTasks) {
+          lines.push(`- [x] ${escapeMarkdown(task.text)}`);
+          for (const subtask of task.subtasks) {
+            lines.push(`  - [${subtask.done ? 'x' : ' '}] ${escapeMarkdown(subtask.text)}`);
+          }
+        }
+      }
+
+      lines.push('', '## Open tasks', '');
+      if (todoTasks.length === 0) {
+        lines.push('- No open tasks.');
+      } else {
+        for (const task of todoTasks) {
+          lines.push(`- [ ] ${escapeMarkdown(task.text)}`);
+          for (const subtask of task.subtasks) {
+            lines.push(`  - [${subtask.done ? 'x' : ' '}] ${escapeMarkdown(subtask.text)}`);
+          }
+        }
+      }
+
+      return `${lines.join('\n')}\n`;
+    }
+
+    function saveWeeklyMarkdown() {
+      try {
+        localStorage.setItem(WEEKLY_MARKDOWN_STORAGE_KEY, buildWeeklyMarkdown());
+      } catch (err) {
+        console.warn('Could not save weekly markdown:', err);
+      }
+    }
+
+    function rememberCompletedTask(task) {
+      const completedTask = {
+        id: task.id,
+        text: task.text,
+        subtasks: normalizeSubtasks(task.subtasks),
+        completedAt: new Date().toISOString(),
+      };
+      completedTasks = [
+        ...completedTasks.filter(item => item.id !== task.id),
+        completedTask,
+      ];
+      saveCompletedTasks();
+      saveWeeklyMarkdown();
+    }
+
+    function exportWeeklyMarkdown() {
+      saveWeeklyMarkdown();
+      const markdown = localStorage.getItem(WEEKLY_MARKDOWN_STORAGE_KEY) || buildWeeklyMarkdown();
+      const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `weekly-tasks-${formatExportDate()}.md`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
     let todoTasks = readStoredTasks();
+    let completedTasks = readCompletedTasks();
     if (todoTasks === null) {
       todoTasks = DEFAULT_TASKS.map(text => ({
         id: createTaskId(),
         text,
-        dueAt: '',
-        reminderNote: '',
-        remindedAt: null,
+        subtasks: [],
       }));
       saveTasks();
     }
+    saveWeeklyMarkdown();
 
     function removeStoredTask(id) {
       todoTasks = todoTasks.filter(task => task.id !== id);
       saveTasks();
+      saveWeeklyMarkdown();
     }
 
     function updateStoredTask(id, updates) {
       todoTasks = todoTasks.map(task => task.id === id ? {...task, ...updates} : task);
       saveTasks();
+      saveWeeklyMarkdown();
     }
 
     function findTask(id) {
       return todoTasks.find(task => task.id === id);
     }
 
-    function formatReminder(task) {
-      if (!task.dueAt && !task.reminderNote) return '';
-      const parts = [];
-      if (task.dueAt) {
-        const due = new Date(task.dueAt);
-        if (!Number.isNaN(due.getTime())) {
-          parts.push(`Due ${due.toLocaleString([], {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}`);
-        }
+    function parseSubtasks(text, existingSubtasks = []) {
+      const existingByText = new Map();
+      for (const subtask of existingSubtasks) {
+        if (!existingByText.has(subtask.text)) existingByText.set(subtask.text, []);
+        existingByText.get(subtask.text).push(subtask);
       }
-      if (task.reminderNote) parts.push(task.reminderNote);
-      return parts.join(' - ');
+      return text.split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(text => {
+          const match = existingByText.get(text)?.shift();
+          return match ? {...match, text} : { id: createTaskId(), text, done: false };
+        });
     }
 
-    function renderReminderMeta(meta, task) {
-      const text = formatReminder(task);
-      meta.textContent = text;
-      meta.hidden = !text;
-      const dueMs = task.dueAt ? new Date(task.dueAt).getTime() : NaN;
-      meta.classList.toggle('due-now', Number.isFinite(dueMs) && dueMs <= Date.now());
+    function renderSubtasks(listEl, task, li, span) {
+      listEl.innerHTML = '';
+      for (const subtask of task.subtasks) {
+        const item = document.createElement('li');
+        item.className = 'subtask-item';
+        const check = document.createElement('button');
+        const text = document.createElement('span');
+
+        check.type = 'button';
+        check.className = 'subtask-check';
+        check.classList.toggle('checked', subtask.done);
+        check.setAttribute('aria-label', `${subtask.done ? 'Mark incomplete' : 'Mark complete'}: ${subtask.text}`);
+        text.className = 'subtask-text';
+        text.classList.toggle('done', subtask.done);
+        text.textContent = subtask.text;
+
+        check.addEventListener('click', () => {
+          const currentTask = findTask(task.id);
+          if (!currentTask) return;
+          const subtasks = currentTask.subtasks.map(item =>
+            item.id === subtask.id ? {...item, done: !item.done} : item
+          );
+          updateStoredTask(task.id, {subtasks});
+          const nextTask = {...currentTask, subtasks};
+          renderSubtasks(listEl, nextTask, li, span);
+          if (subtasks.length > 0 && subtasks.every(item => item.done)) {
+            complete(li, li.querySelector('.check-box'), span, task.id);
+          }
+        });
+
+        item.appendChild(check);
+        item.appendChild(text);
+        listEl.appendChild(item);
+      }
     }
 
     // ── Add task ─────────────────────────────────────────────────
@@ -1797,9 +2024,10 @@
       const text = input.value.trim();
       if (!text) return;
       input.value = '';
-      const task = { id: createTaskId(), text, dueAt: '', reminderNote: '', remindedAt: null };
+      const task = { id: createTaskId(), text, subtasks: [] };
       todoTasks.push(task);
       saveTasks();
+      saveWeeklyMarkdown();
       renderTask(task);
     }
 
@@ -1809,115 +2037,101 @@
       const cb   = document.createElement('div'); cb.className = 'check-box';
       const body = document.createElement('div'); body.className = 'todo-content';
       const span = document.createElement('span'); span.className = 'todo-text';
-      const meta = document.createElement('div'); meta.className = 'todo-meta';
-      const reminderBtn = document.createElement('button');
-      const panel = document.createElement('div'); panel.className = 'reminder-panel';
-      const timeInput = document.createElement('input');
-      const noteInput = document.createElement('textarea');
-      const actions = document.createElement('div'); actions.className = 'reminder-actions';
-      const clearBtn = document.createElement('button');
+      const subtaskList = document.createElement('ul'); subtaskList.className = 'subtask-list';
+      const editBtn = document.createElement('button');
+      const panel = document.createElement('div'); panel.className = 'edit-panel';
+      const titleLabel = document.createElement('label'); titleLabel.className = 'field-label';
+      const titleInput = document.createElement('input');
+      const subtasksLabel = document.createElement('label'); subtasksLabel.className = 'field-label';
+      const subtasksInput = document.createElement('textarea');
+      const actions = document.createElement('div'); actions.className = 'edit-actions';
+      const cancelBtn = document.createElement('button');
       const saveBtn = document.createElement('button');
 
       span.textContent = task.text;
-      renderReminderMeta(meta, task);
+      renderSubtasks(subtaskList, task, li, span);
 
-      reminderBtn.className = 'reminder-btn';
-      reminderBtn.type = 'button';
-      reminderBtn.title = 'Set reminder';
-      reminderBtn.setAttribute('aria-label', `Set reminder for ${task.text}`);
-      reminderBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"></circle><path d="M12 9v4l3 2"></path><path d="M7 3 4 6"></path><path d="m17 3 3 3"></path></svg>';
-      reminderBtn.classList.toggle('active', Boolean(task.dueAt || task.reminderNote));
+      editBtn.className = 'edit-btn';
+      editBtn.type = 'button';
+      editBtn.title = 'Edit task';
+      editBtn.setAttribute('aria-label', `Edit ${task.text}`);
+      editBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4Z"></path><path d="m12 6 4 4"></path></svg>';
 
-      timeInput.type = 'datetime-local';
-      timeInput.value = task.dueAt || '';
-      noteInput.placeholder = 'Reminder note';
-      noteInput.maxLength = 160;
-      noteInput.value = task.reminderNote || '';
-      clearBtn.type = 'button';
-      clearBtn.textContent = 'Clear';
+      titleLabel.textContent = 'Main task';
+      titleInput.type = 'text';
+      titleInput.maxLength = 120;
+      titleInput.value = task.text;
+      subtasksLabel.textContent = 'Subtasks (one per line)';
+      subtasksInput.placeholder = 'Break this task into smaller steps';
+      subtasksInput.maxLength = 800;
+      subtasksInput.value = task.subtasks.map(item => item.text).join('\n');
+      cancelBtn.type = 'button';
+      cancelBtn.textContent = 'Cancel';
       saveBtn.type = 'button';
-      saveBtn.className = 'save-reminder';
+      saveBtn.className = 'save-edit';
       saveBtn.textContent = 'Save';
 
-      actions.appendChild(clearBtn);
+      actions.appendChild(cancelBtn);
       actions.appendChild(saveBtn);
-      panel.appendChild(timeInput);
-      panel.appendChild(noteInput);
+      panel.appendChild(titleLabel);
+      panel.appendChild(titleInput);
+      panel.appendChild(subtasksLabel);
+      panel.appendChild(subtasksInput);
       panel.appendChild(actions);
       body.appendChild(span);
-      body.appendChild(meta);
+      body.appendChild(subtaskList);
       li.appendChild(cb);
       li.appendChild(body);
-      li.appendChild(reminderBtn);
+      li.appendChild(editBtn);
       li.appendChild(panel);
       list.appendChild(li);
 
       cb.addEventListener('click', () => complete(li, cb, span, task.id));
-      reminderBtn.addEventListener('click', () => {
-        li.classList.toggle('reminder-open');
-        if (li.classList.contains('reminder-open')) timeInput.focus();
+      editBtn.addEventListener('click', () => {
+        const currentTask = findTask(task.id);
+        titleInput.value = currentTask ? currentTask.text : task.text;
+        subtasksInput.value = currentTask
+          ? currentTask.subtasks.map(item => item.text).join('\n')
+          : task.subtasks.map(item => item.text).join('\n');
+        li.classList.toggle('edit-open');
+        editBtn.classList.toggle('active', li.classList.contains('edit-open'));
+        if (li.classList.contains('edit-open')) titleInput.focus();
       });
-      saveBtn.addEventListener('click', async () => {
-        const dueAt = timeInput.value;
-        const reminderNote = noteInput.value.trim();
-        const nextTask = {...findTask(task.id), dueAt, reminderNote, remindedAt: null};
-        updateStoredTask(task.id, {dueAt, reminderNote, remindedAt: null});
-        renderReminderMeta(meta, nextTask);
-        reminderBtn.classList.toggle('active', Boolean(dueAt || reminderNote));
-        li.classList.remove('reminder-open');
-        if (dueAt && 'Notification' in window && Notification.permission === 'default') {
-          await Notification.requestPermission();
+      saveBtn.addEventListener('click', () => {
+        const nextText = titleInput.value.trim();
+        if (!nextText) {
+          titleInput.focus();
+          return;
         }
+        const currentTask = findTask(task.id);
+        const subtasks = parseSubtasks(subtasksInput.value, currentTask ? currentTask.subtasks : task.subtasks);
+        const nextTask = { text: nextText, subtasks };
+        updateStoredTask(task.id, nextTask);
+        task.text = nextText;
+        task.subtasks = subtasks;
+        span.textContent = nextText;
+        renderSubtasks(subtaskList, {...task, ...nextTask}, li, span);
+        editBtn.setAttribute('aria-label', `Edit ${nextText}`);
+        li.classList.remove('edit-open');
+        editBtn.classList.remove('active');
       });
-      clearBtn.addEventListener('click', () => {
-        timeInput.value = '';
-        noteInput.value = '';
-        const nextTask = {...findTask(task.id), dueAt: '', reminderNote: '', remindedAt: null};
-        updateStoredTask(task.id, {dueAt: '', reminderNote: '', remindedAt: null});
-        renderReminderMeta(meta, nextTask);
-        reminderBtn.classList.remove('active');
-        li.classList.remove('reminder-open');
+      cancelBtn.addEventListener('click', () => {
+        const currentTask = findTask(task.id);
+        titleInput.value = currentTask ? currentTask.text : task.text;
+        subtasksInput.value = currentTask
+          ? currentTask.subtasks.map(item => item.text).join('\n')
+          : task.subtasks.map(item => item.text).join('\n');
+        li.classList.remove('edit-open');
+        editBtn.classList.remove('active');
       });
-    }
-
-    function refreshReminder(task) {
-      for (const item of list.children) {
-        if (item.dataset.taskId !== task.id) continue;
-        const meta = item.querySelector('.todo-meta');
-        if (meta) renderReminderMeta(meta, task);
-        break;
-      }
-    }
-
-    function notifyReminder(task) {
-      const body = task.reminderNote || task.text;
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(`Todo reminder: ${task.text}`, { body });
-      }
-      document.title = `Reminder: ${task.text}`;
-      setTimeout(() => { document.title = 'To-do'; }, 6000);
-    }
-
-    function checkReminders() {
-      const now = Date.now();
-      let changed = false;
-      todoTasks = todoTasks.map(task => {
-        if (!task.dueAt || task.remindedAt) return task;
-        const dueMs = new Date(task.dueAt).getTime();
-        if (!Number.isFinite(dueMs) || dueMs > now) return task;
-        const nextTask = {...task, remindedAt: now};
-        notifyReminder(nextTask);
-        refreshReminder(nextTask);
-        changed = true;
-        return nextTask;
-      });
-      if (changed) saveTasks();
     }
     addBtn.addEventListener('click', addTask);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
 
     // ── Complete — scatter letters ────────────────────────────────
     function complete(li, cb, span, taskId) {
+      const task = findTask(taskId);
+      if (task) rememberCompletedTask(task);
       removeStoredTask(taskId);
       playCheck();
       cb.classList.add('checked');
@@ -1940,6 +2154,7 @@
       });
       ensureLoop();
     }
+    exportWeeklyBtn.addEventListener('click', exportWeeklyMarkdown);
 
     // ── Tool Launcher ─────────────────────────────────────────────
     const tlbtn    = document.getElementById('tlbtn');
@@ -2061,8 +2276,6 @@
     });
 
     todoTasks.forEach(renderTask);
-    checkReminders();
-    setInterval(checkReminders, 30000);
   </script>
 </body>
 </html>

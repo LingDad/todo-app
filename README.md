@@ -1,6 +1,6 @@
-# Funny To-do
+# Weekly To-do
 
-A playful single-page todo app where completed tasks break into falling letters. The letters can be pushed around with a desk fan, pulled into a vacuum, or swept into a tornado and trash bin.
+A playful single-page weekly todo app where completed tasks break into falling letters. The letters can be pushed around with a desk fan, pulled into a vacuum, or swept into a tornado and trash bin.
 
 Live site: https://lingdad.github.io/todo-app
 
@@ -8,7 +8,10 @@ Live site: https://lingdad.github.io/todo-app
 
 - Add tasks from the input field or by pressing Enter.
 - Complete a task by clicking its round checkbox.
-- Set a due time and reminder note from the clock button on each task.
+- Edit each task from the button on the right side of the row.
+- Break a task into a second-level checklist, one item per line.
+- Complete every subtask to automatically complete the main task.
+- Export completed and open tasks as a weekly Markdown file.
 - Watch completed task text scatter into animated letter particles.
 - Use the floating tool launcher to activate:
   - Fan: blows settled letters across the screen.
@@ -16,7 +19,8 @@ Live site: https://lingdad.github.io/todo-app
   - Tornado: swirls letters and can drop them into the trash bin.
 - Sound effects are generated with the Web Audio API.
 - Tasks are saved in the browser with `localStorage`.
-- Reminder details are stored with each task and checked while the page is open.
+- Main tasks and subtasks are stored together in the browser.
+- Completed weekly tasks are saved as Markdown data in the browser and downloaded from the export button.
 
 ## Project Structure
 
@@ -53,6 +57,5 @@ https://lingdad.github.io/todo-app
 ## Notes
 
 - The sample tasks are only added the first time the app runs in a browser.
-- Browser notifications require permission and only fire while the page is open.
 - The visual effects can create many letter particles during long sessions, so performance may depend on browser and device speed.
 - Audio starts after user interaction because browsers limit autoplaying sound.
